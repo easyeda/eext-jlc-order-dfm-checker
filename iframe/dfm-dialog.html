@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="zh-Hans">
+	<head>
+		<title>立创DFM</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+				background: #f5f5f5;
+				overflow: hidden;
+				user-select: none;
+			}
+
+			/* 主容器 */
+			.dialog-container {
+				width: 400px;
+				height: 500px;
+				background: #ffffff;
+				border: 1px solid #e0e0e0;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+				display: flex;
+				flex-direction: column;
+			}
+
+			/* 标题栏 */
+			.title-bar {
+				height: 40px;
+				background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 0 12px;
+				cursor: move;
+				user-select: none;
+			}
+
+			.title-bar .title {
+				color: #ffffff;
+				font-size: 14px;
+				font-weight: 600;
+				letter-spacing: 0.5px;
+			}
+
+			.title-bar .close-btn {
+				width: 24px;
+				height: 24px;
+				border: none;
+				background: rgba(255, 255, 255, 0.2);
+				color: #ffffff;
+				font-size: 18px;
+				cursor: pointer;
+				border-radius: 4px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				transition: background 0.2s;
+			}
+
+			.title-bar .close-btn:hover {
+				background: rgba(255, 255, 255, 0.3);
+			}
+
+			/* 内容区 */
+			.content-area {
+				flex: 1;
+				padding: 20px;
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+			}
+
+			/* 按钮样式 */
+			.dfm-button {
+				height: 48px;
+				border: none;
+				border-radius: 8px;
+				font-size: 15px;
+				font-weight: 500;
+				cursor: pointer;
+				transition: all 0.2s;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+			}
+
+			.dfm-button:hover {
+				transform: translateY(-2px);
+				box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+			}
+
+			.dfm-button:active {
+				transform: translateY(0);
+			}
+
+			/* PCB DFM 按钮 */
+			.btn-pcb {
+				background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+				color: #ffffff;
+			}
+
+			.btn-pcb:hover {
+				background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+			}
+
+			/* FPC DFM 按钮 */
+			.btn-fpc {
+				background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+				color: #ffffff;
+			}
+
+			.btn-fpc:hover {
+				background: linear-gradient(135deg, #e080eb 0%, #e0465c 100%);
+			}
+
+			/* SMT DFM 按钮 */
+			.btn-smt {
+				background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+				color: #ffffff;
+			}
+
+			.btn-smt:hover {
+				background: linear-gradient(135deg, #3e9bef 0%, #00d4e9 100%);
+			}
+
+			/* 日志按钮 */
+			.btn-log {
+				background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+				color: #ffffff;
+			}
+
+			.btn-log:hover {
+				background: linear-gradient(135deg, #32d86a 0%, #2ee8c7 100%);
+			}
+
+			/* 按钮图标 */
+			.button-icon {
+				font-size: 18px;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="dialog-container">
+			<!-- 标题栏 -->
+			<div class="title-bar" id="titleBar">
+				<span class="title">立创DFM</span>
+				<button class="close-btn" id="closeBtn" title="关闭">×</button>
+			</div>
+
+			<!-- 内容区 -->
+			<div class="content-area">
+				<button class="dfm-button btn-pcb" id="btnPcb">
+					<span class="button-icon">📋</span>
+					<span>PCB DFM</span>
+				</button>
+
+				<button class="dfm-button btn-fpc" id="btnFpc">
+					<span class="button-icon">🔧</span>
+					<span>FPC DFM</span>
+				</button>
+
+				<button class="dfm-button btn-smt" id="btnSmt">
+					<span class="button-icon">⚡</span>
+					<span>SMT DFM</span>
+				</button>
+
+				<button class="dfm-button btn-log" id="btnLog">
+					<span class="button-icon">📝</span>
+					<span>日志</span>
+				</button>
+			</div>
+		</div>
+
+		<script>
+			// 获取元素
+			const titleBar = document.getElementById('titleBar');
+			const closeBtn = document.getElementById('closeBtn');
+			const dialogContainer = document.querySelector('.dialog-container');
+
+			// 关闭按钮事件
+			closeBtn.addEventListener('click', function() {
+				// 调用 EDA API 关闭窗口
+				if (window.eda) {
+					window.eda.sys_IFrame.close();
+				}
+			});
+
+			// 拖动功能
+			let isDragging = false;
+			let startX, startY, initialX, initialY;
+
+			titleBar.addEventListener('mousedown', function(e) {
+				if (e.target === closeBtn) return;
+				isDragging = true;
+				startX = e.clientX;
+				startY = e.clientY;
+
+				const rect = dialogContainer.getBoundingClientRect();
+				initialX = rect.left;
+				initialY = rect.top;
+
+				titleBar.style.cursor = 'grabbing';
+			});
+
+			document.addEventListener('mousemove', function(e) {
+				if (!isDragging) return;
+
+				const dx = e.clientX - startX;
+				const dy = e.clientY - startY;
+
+				if (window.eda && window.eda.sys_IFrame) {
+					window.eda.sys_IFrame.moveWindow(initialX + dx, initialY + dy);
+				}
+			});
+
+			document.addEventListener('mouseup', function() {
+				isDragging = false;
+				titleBar.style.cursor = 'move';
+			});
+
+			// 按钮点击事件
+			document.getElementById('btnPcb').addEventListener('click', function() {
+				console.log('PCB DFM 点击');
+				// TODO: 实现 PCB DFM 功能
+			});
+
+			document.getElementById('btnFpc').addEventListener('click', function() {
+				console.log('FPC DFM 点击');
+				// TODO: 实现 FPC DFM 功能
+			});
+
+			document.getElementById('btnSmt').addEventListener('click', function() {
+				console.log('SMT DFM 点击');
+				// TODO: 实现 SMT DFM 功能
+			});
+
+			document.getElementById('btnLog').addEventListener('click', function() {
+				console.log('日志 点击');
+				// TODO: 实现日志功能
+			});
+		</script>
+	</body>
+</html>

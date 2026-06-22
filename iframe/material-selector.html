@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+    <title>PCB 板材选择</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: #f5f5f5;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .dialog-container {
+            width: 450px;
+            height: 100vh;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+
+        .content-area {
+            flex: 1;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-label .required {
+            color: #e74c3c;
+            margin-left: 2px;
+        }
+
+        .form-input,
+        .form-select {
+            height: 36px;
+            padding: 0 12px;
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #333;
+            background: #ffffff;
+            transition: border 0.2s;
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: #888;
+            margin-top: -4px;
+        }
+
+        .button-area {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: auto;
+        }
+
+        .dialog-button {
+            min-width: 80px;
+            height: 36px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-cancel {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .btn-cancel:hover {
+            background: #d0d0d0;
+        }
+
+        .btn-confirm {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+        }
+
+        .btn-confirm:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-confirm:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="dialog-container">
+
+        <div class="content-area">
+            <div class="form-group">
+                <label class="form-label">板材类型<span class="required">*</span></label>
+                <select class="form-select" id="materialType">
+                    <option value="FR4">FR4 (环氧树脂)</option>
+                    <option value="CEM-1">CEM-1 (复合环氧)</option>
+                    <option value="铝基板">铝基板</option>
+                    <option value="铜基板">铜基板</option>
+                    <option value="高频板">高频板</option>
+                    <option value="HDI板">HDI 板</option>
+                </select>
+                <div class="form-hint">选择板材将决定后续检查的标准阈值</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">板厚 (mm)<span class="required">*</span></label>
+                <input type="number" class="form-input" id="boardThickness"
+                       placeholder="请输入板厚" step="0.1" min="0.1" max="10.0" value="1.6">
+                <div class="form-hint">范围: 0.1 - 10.0 mm (不同板材支持范围不同)</div>
+            </div>
+
+            <div class="button-area">
+                <button class="dialog-button btn-cancel" id="cancelBtn">取消</button>
+                <button class="dialog-button btn-confirm" id="confirmBtn">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cancelBtn = document.getElementById('cancelBtn');
+        const confirmBtn = document.getElementById('confirmBtn');
+        const materialType = document.getElementById('materialType');
+        const boardThickness = document.getElementById('boardThickness');
+
+        // 取消按钮 - 关闭当前iframe
+        cancelBtn.addEventListener('click', function() {
+            if (window.eda && window.eda.sys_IFrame) {
+                window.eda.sys_IFrame.closeIFrame('materialSelector');
+            }
+        });
+
+        // 确定按钮 - 调用 PCB DFM 检查
+        confirmBtn.addEventListener('click', async function() {
+            const material = materialType.value;
+            const thickness = parseFloat(boardThickness.value);
+
+            // 验证输入
+            if (!thickness || thickness <= 0) {
+                alert('请输入有效的板厚');
+                return;
+            }
+
+            // 禁用确定按钮，防止重复点击
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '检查中...';
+
+            try {
+                // 调用扩展函数保存材料信息
+                if (window.eda && window.eda.setMaterialInput) {
+                    window.eda.setMaterialInput(material, thickness);
+                }
+
+                // 调用 PCB DFM 检查（等待完成）
+                if (window.eda && window.eda.pcbDfmWithMaterial) {
+                    await window.eda.pcbDfmWithMaterial(material, thickness);
+                } else {
+                    throw new Error('无法访问 DFM 检查函数，请确保扩展已正确加载');
+                }
+            } catch (error) {
+                console.error('PCB DFM 检查失败:', error);
+                alert('检查失败：' + error);
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '确定';
+                return; // 检查失败时不关闭对话框
+            }
+
+            // 检查完成后关闭对话框
+            if (window.eda && window.eda.sys_IFrame) {
+                window.eda.sys_IFrame.closeIFrame('materialSelector');
+            }
+        });
+    </script>
+</body>
+</html>

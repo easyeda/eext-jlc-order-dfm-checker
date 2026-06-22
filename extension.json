@@ -1,0 +1,89 @@
+{
+	"name": "jlc-pcb-dfm-checker",
+	"uuid": "54195a4d50924d1ab77d65cb46c82a45",
+	"displayName": "嘉立创DFM检查工具",
+	"description": "一款基于EDA工具的插件，旨在帮助用户检查和优化PCB设计，以满足嘉立创的制造要求。该工具提供了自动化的DFM检查功能，能够识别潜在的设计问题并提供改进建议，从而提高设计质量和生产效率。",
+	"version": "1.0.0",
+	"publisher": "",
+	"engines": {
+		"eda": "^3.0.0"
+	},
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "extension-store",
+		"url": ""
+	},
+	"categories": "Other",
+	"keywords": [
+		"Tool"
+	],
+	"images": {
+		"logo": "./images/logo.png"
+	},
+	"homepage": "",
+	"bugs": "",
+	"activationEvents": {},
+	"entry": "./dist/index",
+	"dependentExtensions": {},
+	"headerMenus": {
+		"home": [
+			{
+				"id": "menuId",
+				"title": "Ext Menu",
+				"menuItems": [
+					{
+						"id": "About",
+						"title": "About...",
+						"registerFn": "about"
+					}
+				]
+			}
+		],
+		"sch": [
+			{
+				"id": "menuId",
+				"title": "Ext Menu",
+				"menuItems": [
+					{
+						"id": "About",
+						"title": "About...",
+						"registerFn": "about"
+					}
+				]
+			}
+		],
+		"pcb": [
+			{
+				"id": "dfmMenuGroup",
+				"title": "嘉立创DFM",
+				"menuItems": [
+					{
+						"id": "PcbDfm",
+						"title": "PCB DFM",
+						"registerFn": "pcbDfm"
+					},
+					{
+						"id": "SmtDfm",
+						"title": "SMT DFM",
+						"registerFn": "smtDfm"
+					},
+					{
+						"id": "PcbDfmReport",
+						"title": "PCB DFM报告",
+						"registerFn": "exportPcbReport"
+					},
+					{
+						"id": "SmtDfmReport",
+						"title": "SMT DFM报告",
+						"registerFn": "exportSmtReport"
+					},
+					{
+						"id": "DfmLog",
+						"title": "日志",
+						"registerFn": "showLog"
+					}
+				]
+			}
+		]
+	}
+}

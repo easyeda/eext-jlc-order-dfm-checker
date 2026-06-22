@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+    <title>DFM 检查结果</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: #f5f5f5;
+            overflow: hidden;
+        }
+
+        .results-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .summary-bar {
+            padding: 10px 16px;
+            background: #f8f9fa;
+            color: #333;
+            font-size: 13px;
+            font-weight: 500;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .results-content {
+            flex: 1;
+            overflow: auto;
+            padding: 16px;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .results-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+        }
+
+        .results-table th {
+            padding: 12px 8px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .results-table th:nth-child(1) { width: 50px; }
+        .results-table th:nth-child(2) { width: 140px; }
+        .results-table th:nth-child(3) { width: 150px; }
+        .results-table th:nth-child(4) { width: 150px; }
+        .results-table th:nth-child(5) { width: 80px; }
+
+        .results-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+
+        .results-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .results-table tbody tr.error-row {
+            background: #fff5f5;
+        }
+
+        .results-table tbody tr.error-row:hover {
+            background: #ffe8e8;
+            cursor: pointer;
+        }
+
+        .results-table tbody tr.warning-row {
+            background: #fffbf0;
+        }
+
+        .results-table tbody tr.warning-row:hover {
+            background: #fff3d6;
+            cursor: pointer;
+        }
+
+        .results-table tbody tr.success-row {
+            background: #f0fff4;
+        }
+
+        .result-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .result-badge.success {
+            background: #10b981;
+            color: #ffffff;
+        }
+
+        .result-badge.warning {
+            background: #f59e0b;
+            color: #ffffff;
+        }
+
+        .result-badge.error {
+            background: #ef4444;
+            color: #ffffff;
+        }
+
+        .violation-info {
+            font-size: 12px;
+            color: #ef4444;
+            margin-top: 4px;
+        }
+
+        .violation-coord {
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .violation-coord:hover {
+            color: #764ba2;
+        }
+
+        .click-hint {
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="results-container">
+        <div class="summary-bar" id="summary">加载中...</div>
+
+        <div class="results-content" id="resultsContent">
+            <div class="empty-state">
+                <div class="empty-state-icon">📋</div>
+                <div>暂无检查结果</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let checkResults = null;
+        let checkType = '';
+
+        function renderResults() {
+            if (!checkResults || !checkResults.results) {
+                return;
+            }
+
+            const content = document.getElementById('resultsContent');
+            const summary = document.getElementById('summary');
+
+            // 更新摘要
+            const total = checkResults.results.length;
+            const passed = checkResults.results.filter(r => r.result === 'success').length;
+            const errors = checkResults.errorCount || 0;
+            const warnings = checkResults.warningCount || 0;
+            const typeName = checkType === 'pcb' ? 'PCB DFM' : 'SMT DFM';
+
+            summary.textContent = `${typeName} - 总计: ${total} | 通过: ${passed} | 错误: ${errors} | 警告: ${warnings}`;
+
+            // 生成表格
+            let html = '<div class="click-hint">📌 点击违规行可定位到对应元素</div>';
+            html += '<table class="results-table">';
+            html += '<thead><tr><th>编号</th><th>检测项目</th><th>实际值</th><th>标准值</th><th>结果</th></tr></thead>';
+            html += '<tbody>';
+
+            for (const result of checkResults.results) {
+                const rowClass = result.result === 'error' ? 'error-row' :
+                                result.result === 'warning' ? 'warning-row' : 'success-row';
+                const badgeClass = result.result;
+                const badgeText = result.result === 'success' ? 'OK' :
+                                 result.result === 'warning' ? '警告' : '错误';
+
+                html += `<tr class="${rowClass}" data-number="${result.number}">`;
+                html += `<td>${result.number}</td>`;
+                html += `<td>${result.item}</td>`;
+                html += `<td>${result.actualValue}</td>`;
+                html += `<td>${result.standardValue}</td>`;
+                html += `<td><span class="result-badge ${badgeClass}">${badgeText}</span></td>`;
+                html += '</tr>';
+
+                // 违规项详情
+                if (result.violations && result.violations.length > 0) {
+                    html += `<tr class="${rowClass}">`;
+                    html += `<td colspan="5">`;
+                    html += '<div class="violation-info">';
+
+                    const maxShow = 10;
+                    for (let i = 0; i < Math.min(result.violations.length, maxShow); i++) {
+                        const v = result.violations[i];
+                        html += `<span class="violation-coord" data-id="${v.id}" data-x="${v.x}" data-y="${v.y}" data-type="${v.type}">`;
+                        html += `(${v.x.toFixed(2)}, ${v.y.toFixed(2)}) ${v.reason}`;
+                        html += '</span>';
+                        if (i < result.violations.length - 1 && i < maxShow - 1) {
+                            html += ' | ';
+                        }
+                    }
+
+                    if (result.violations.length > maxShow) {
+                        html += ` ... 还有 ${result.violations.length - maxShow} 个违规项`;
+                    }
+
+                    html += '</div>';
+                    html += '</td>';
+                    html += '</tr>';
+                }
+            }
+
+            html += '</tbody>';
+            html += '</table>';
+
+            content.innerHTML = html;
+
+            // 绑定点击事件
+            bindClickEvents();
+        }
+
+        function bindClickEvents() {
+            // 绑定违规坐标点击事件
+            document.querySelectorAll('.violation-coord').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const id = this.getAttribute('data-id');
+                    const x = parseFloat(this.getAttribute('data-x'));
+                    const y = parseFloat(this.getAttribute('data-y'));
+                    const type = this.getAttribute('data-type');
+
+                    locateViolation(id, x, y, type);
+                });
+            });
+
+            // 绑定行点击事件(整个违规行)
+            document.querySelectorAll('.error-row, .warning-row').forEach(row => {
+                const violationCoords = row.querySelectorAll('.violation-coord');
+                if (violationCoords.length > 0) {
+                    row.addEventListener('click', function(e) {
+                        const firstCoord = violationCoords[0];
+                        const id = firstCoord.getAttribute('data-id');
+                        const x = parseFloat(firstCoord.getAttribute('data-x'));
+                        const y = parseFloat(firstCoord.getAttribute('data-y'));
+                        const type = firstCoord.getAttribute('data-type');
+
+                        locateViolation(id, x, y, type);
+                    });
+                }
+            });
+        }
+
+        function locateViolation(id, x, y, type) {
+            if (window.eda && window.eda.locateViolation) {
+                window.eda.locateViolation(id, x, y, type);
+            } else {
+                console.log('Locate:', {id, x, y, type});
+            }
+        }
+
+        // 接收检查结果
+        if (window.eda && window.eda.getDFMResults) {
+            const resultsData = window.eda.getDFMResults();
+            if (resultsData) {
+                checkResults = resultsData.results;
+                checkType = resultsData.type || 'pcb';
+                renderResults();
+            }
+        }
+
+        // 监听来自扩展的结果更新
+        if (window.eda) {
+            window.eda.onResultsUpdated = function(results, type) {
+                checkResults = results;
+                checkType = type;
+                renderResults();
+            };
+        } else {
+            console.warn('无法访问 eda 对象');
+        }
+    </script>
+</body>
+</html>
