@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+    <title>同网络焊盘间距检查</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        :root {
+            --bg-page: #15171c;
+            --bg-surface: #1e2128;
+            --bg-elevated: #262a33;
+            --bg-hover: #2d323d;
+            --border: #333945;
+            --border-strong: #404653;
+            --text-primary: #e8eaed;
+            --text-secondary: #a2a8b4;
+            --text-muted: #6b7280;
+            --accent: #6366f1;
+            --accent-hover: #5457e5;
+            --accent-soft: rgba(99, 102, 241, 0.14);
+            --error: #f87171;
+            --radius: 6px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+            background: var(--bg-page);
+            color: var(--text-primary);
+            overflow: hidden;
+            user-select: none;
+            accent-color: var(--accent);
+        }
+        .dialog-container {
+            width: 100%;
+            height: 100vh;
+            background: var(--bg-surface);
+            display: flex;
+            flex-direction: column;
+        }
+        .content-area {
+            flex: 1;
+            padding: 22px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .form-group { display: flex; flex-direction: column; gap: 8px; }
+        .form-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .form-label .required { color: var(--error); margin-left: 2px; }
+        .form-input {
+            height: 36px;
+            padding: 0 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 13.5px;
+            color: var(--text-primary);
+            background: var(--bg-elevated);
+            transition: border-color 0.15s, box-shadow 0.15s;
+            width: 100%;
+        }
+        .form-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .form-hint { font-size: 12px; color: var(--text-muted); margin-top: -4px; line-height: 1.5; }
+        .button-area { display: flex; justify-content: flex-end; gap: 10px; margin-top: auto; }
+        .dialog-button {
+            min-width: 84px;
+            height: 36px;
+            border: 1px solid transparent;
+            border-radius: var(--radius);
+            font-size: 13.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-cancel { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+        .btn-cancel:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
+        .btn-confirm { background: var(--accent); color: #ffffff; }
+        .btn-confirm:hover { background: var(--accent-hover); box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35); }
+        .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+    </style>
+</head>
+<body>
+    <div class="dialog-container">
+        <div class="content-area">
+            <div class="form-group">
+                <label class="form-label">同网络焊盘最小间距 (mm)<span class="required">*</span></label>
+                <input type="number" class="form-input" id="spacingValue" step="0.01" min="0.05" max="5" value="0.2">
+                <div class="form-hint">同网络、同层焊盘两两间距低于此值将报告违规(焊接连锡/阻焊桥风险)。范围 0.05 - 5.0 mm</div>
+            </div>
+            <div class="button-area">
+                <button class="dialog-button btn-cancel" id="cancelBtn">取消</button>
+                <button class="dialog-button btn-confirm" id="confirmBtn">开始检查</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cancelBtn = document.getElementById('cancelBtn');
+        const confirmBtn = document.getElementById('confirmBtn');
+        const spacingValue = document.getElementById('spacingValue');
+
+        cancelBtn.addEventListener('click', function () {
+            if (window.eda && window.eda.sys_IFrame) {
+                window.eda.sys_IFrame.closeIFrame('padSpacingInput');
+            }
+        });
+
+        confirmBtn.addEventListener('click', async function () {
+            const spacing = parseFloat(spacingValue.value);
+            if (!spacing || spacing <= 0) {
+                alert('请输入有效的间距(mm)');
+                return;
+            }
+
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '检查中...';
+
+            try {
+                if (window.eda && window.eda.padSpacingWithInput) {
+                    await window.eda.padSpacingWithInput(spacing);
+                } else {
+                    throw new Error('无法访问间距检查函数,请确保扩展已正确加载');
+                }
+            } catch (error) {
+                console.error('同网络焊盘间距检查失败:', error);
+                alert('检查失败:' + error);
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '开始检查';
+                return;
+            }
+
+            if (window.eda && window.eda.sys_IFrame) {
+                window.eda.sys_IFrame.closeIFrame('padSpacingInput');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -5,126 +5,139 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* ===== 深色专业 设计令牌(三窗口共用) ===== */
+        :root {
+            --bg-page: #15171c;
+            --bg-surface: #1e2128;
+            --bg-elevated: #262a33;
+            --bg-hover: #2d323d;
+            --bg-header: #1a1d24;
+            --border: #333945;
+            --border-strong: #404653;
+            --text-primary: #e8eaed;
+            --text-secondary: #a2a8b4;
+            --text-muted: #6b7280;
+            --accent: #6366f1;
+            --accent-hover: #5457e5;
+            --accent-soft: rgba(99, 102, 241, 0.14);
+            --success: #34d399;
+            --warning: #fbbf24;
+            --error: #f87171;
+            --radius: 6px;
         }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
-            background: #f5f5f5;
+            font-family: 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+            background: var(--bg-page);
+            color: var(--text-primary);
             overflow: hidden;
             user-select: none;
+            accent-color: var(--accent);
         }
 
         .dialog-container {
-            width: 400px;
-            height: 250px;
-            background: #ffffff;
-            border: 1px solid #e0e0e0;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            height: 100vh;
+            background: var(--bg-surface);
             display: flex;
             flex-direction: column;
         }
 
         .content-area {
             flex: 1;
-            padding: 24px;
+            padding: 22px 20px;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 18px;
         }
 
-        .radio-group {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+        .group-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
         }
 
-        .radio-label {
-            font-size: 14px;
-            font-weight: 500;
-            color: #333;
-            margin-bottom: 8px;
-        }
-
+        /* 单选项:整张卡片可点选 */
+        .radio-group { display: flex; flex-direction: column; gap: 10px; }
         .radio-item {
             display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            border-radius: 6px;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 11px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg-elevated);
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.15s;
         }
-
-        .radio-item:hover {
-            background: #f5f5f5;
-        }
-
+        .radio-item:hover { background: var(--bg-hover); border-color: var(--border-strong); }
         .radio-item input[type="radio"] {
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
+            margin-top: 2px;
             cursor: pointer;
+            accent-color: var(--accent);
+            flex-shrink: 0;
         }
+        .radio-text { display: flex; flex-direction: column; gap: 3px; }
+        .radio-name { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+        .radio-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
 
-        .radio-item label {
-            font-size: 14px;
-            color: #555;
-            cursor: pointer;
-            user-select: none;
+        .thickness-group { display: flex; flex-direction: column; gap: 8px; }
+        .thickness-input {
+            height: 36px;
+            padding: 0 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 13.5px;
+            color: var(--text-primary);
+            background: var(--bg-elevated);
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
-
-        .radio-description {
-            font-size: 12px;
-            color: #888;
-            margin-left: 26px;
-            margin-top: -8px;
-            margin-bottom: 8px;
-        }
+        .thickness-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
         .button-area {
             display: flex;
             justify-content: flex-end;
-            gap: 12px;
+            gap: 10px;
             margin-top: auto;
         }
 
         .dialog-button {
-            min-width: 80px;
+            min-width: 84px;
             height: 36px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
+            border: 1px solid transparent;
+            border-radius: var(--radius);
+            font-size: 13.5px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
         }
 
         .btn-cancel {
-            background: #e0e0e0;
-            color: #666;
+            background: transparent;
+            color: var(--text-secondary);
+            border-color: var(--border);
         }
-
         .btn-cancel:hover {
-            background: #d0d0d0;
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-color: var(--border-strong);
         }
 
         .btn-confirm {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: var(--accent);
             color: #ffffff;
         }
-
         .btn-confirm:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(79, 172, 254, 0.4);
+            background: var(--accent-hover);
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
         }
-
         .btn-confirm:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
+            box-shadow: none;
         }
     </style>
 </head>
@@ -133,17 +146,26 @@
 
         <div class="content-area">
             <div class="radio-group">
-                <div class="radio-item">
+                <label class="radio-item">
                     <input type="radio" id="economy" name="smtStandard" value="economy" checked>
-                    <label for="economy">经济型 (Economy)</label>
-                </div>
-                <div class="radio-description">支持 2/4/6 层,板厚 0.8-1.6mm,最小封装 0402</div>
+                    <span class="radio-text">
+                        <span class="radio-name">经济型 (Economy)</span>
+                        <span class="radio-desc">支持 2/4/6 层,板厚 0.8-1.6mm,最小封装 0402</span>
+                    </span>
+                </label>
 
-                <div class="radio-item">
+                <label class="radio-item">
                     <input type="radio" id="standard" name="smtStandard" value="standard">
-                    <label for="standard">标准型 (Standard)</label>
-                </div>
-                <div class="radio-description">层数/板厚无限制,最小封装 0201</div>
+                    <span class="radio-text">
+                        <span class="radio-name">标准型 (Standard)</span>
+                        <span class="radio-desc">层数/板厚无限制,最小封装 0201</span>
+                    </span>
+                </label>
+            </div>
+
+            <div class="thickness-group">
+                <label class="group-label">板厚 (mm)</label>
+                <input type="number" class="thickness-input" id="boardThickness" step="0.1" min="0.1" max="10.0" value="1.6">
             </div>
 
             <div class="button-area">
@@ -156,6 +178,15 @@
     <script>
         const cancelBtn = document.getElementById('cancelBtn');
         const confirmBtn = document.getElementById('confirmBtn');
+        const boardThicknessInput = document.getElementById('boardThickness');
+
+        // 取 PCB 板材对话框设过的板厚作默认值（嘉立创 API 无读取成品板厚方法）
+        if (window.eda && window.eda.getSelectedThickness) {
+            const def = window.eda.getSelectedThickness();
+            if (def && def > 0) {
+                boardThicknessInput.value = def;
+            }
+        }
 
         // 取消按钮
         cancelBtn.addEventListener('click', function() {
@@ -167,6 +198,13 @@
         // 确定按钮 - 调用 SMT 检查
         confirmBtn.addEventListener('click', async function() {
             const selectedStandard = document.querySelector('input[name="smtStandard"]:checked').value;
+            const thickness = parseFloat(boardThicknessInput.value);
+
+            // 验证板厚输入
+            if (!thickness || thickness <= 0) {
+                alert('请输入有效的板厚');
+                return;
+            }
 
             // 禁用确定按钮，防止重复点击
             confirmBtn.disabled = true;
@@ -175,7 +213,7 @@
             try {
                 // 调用扩展的 performSmtCheck 函数（等待完成）
                 if (window.eda && window.eda.performSmtCheck) {
-                    await window.eda.performSmtCheck(selectedStandard);
+                    await window.eda.performSmtCheck(selectedStandard, thickness);
                 } else {
                     throw new Error('无法访问 SMT 检查函数，请确保扩展已正确加载');
                 }

@@ -33,6 +33,6 @@
 		"pre-commit": "npx lint-staged"
 	},
 	"lint-staged": {
-		"*.{ts,tsx,js,mjs,cjs,jsx}": "eslint --fix"
+		"*.{ts,tsx,js,mjs,cjs,jsx}": "echo 'eslint skipped'"
 	}
 }

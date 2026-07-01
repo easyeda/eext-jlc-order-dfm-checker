@@ -6,10 +6,12 @@
 /node_modules/
 /.eslintcache
 debug.log
+/.claude/
+/ProDoc_PCB*.epro2
 
 # third-party reference docs (large binaries, not version-controlled)
 /lceda-pro-file-format-v3_*/
 
-# generated docs (exported from .md, avoid duplicates)
-/*.docx
-/*.html
+# generated docs (exported from .md, avoid duplicates) — only binaries under doc/
+/doc/**/*.docx
+/doc/**/*.html

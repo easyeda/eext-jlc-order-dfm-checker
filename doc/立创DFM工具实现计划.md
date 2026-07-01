@@ -40,20 +40,40 @@
 > - **第 9 项外径**——过孔 `getState_Diameter()`、焊盘 `getState_Pad()` 形状元组取宽高较大值;actualValue 统一过孔+焊盘最小外径。
 > - **第 10/11 项槽孔重写**——`getState_Hole()` 返回元组 `["SLOT",diameter,length]`,`hole[0]==='SLOT'` 判槽孔;有铜/无铜由 `getState_Metallization()` 判定(非 padType);**槽宽=hole[1](半圆直径),槽长=hole[2](总长,已含两端半圆)**,actualValue 显示槽宽/槽长值。
 > - **关键结论:`getAll()` 返回类实例**,pad/via 的孔径、形状、外径等属性为 protected/private,**必须经 `getState_*()` 访问**;焊盘孔/形状为元组(类型为字符串枚举 `ROUND`/`SLOT`),非对象。
+> **第三轮修复(板材标准重构,已落地)**
+> - **标准值对齐权威源**——`standards.ts`/`types.ts` 全量重写,取自 `板材标准.txt`;原早期近似值(板厚/线宽/过孔/焊盘/尺寸大面积不符)已替换。
+> - **5 种板材(删除 CEM-1)**——FR4 / HDI / 高频板 / 铝基板 / 铜基板;`material-selector.html` 同步删 CEM-1 选项(原 `value="CEM-1"` 与键 `CEM1` 不匹配的 bug 一并消除)。
+> - **分段表 + 共用常量**——各板材仅部分参数特有且随层数/铜厚变化,改为分段表:`maxSizeByLayers`(FR4 尺寸按层数)、`viaSpecsByLayers`(过孔/焊盘按单/双/多层)、`traceSpecsByCopper`(线宽/线距按铜厚)、`thicknessValues`(高频/铝/铜离散板厚);字符/焊环/BGA 焊盘直径等共用字段提取为 `SHARED_DFM_STANDARDS`。
+> - **4 个解析函数**——`resolveMaxSize(s,layerCount)` / `resolveViaSpec(s,layerCount)` / `resolveSlotWithCopper(s,layerCount)` / `resolveMinTrace(s,copperOz,layerCount)`,优先按维度查分段表、无表回退单值;尺寸/板厚/过孔焊盘/有铜槽/线宽/线距等检查项改调 `resolve*`,线宽/线距项新增读外层铜厚(`parseLayerPhysMap` 外层 oz)。
+>
+> **第四轮修复(第 14 项几何与网络,已落地)**
+> - **焊盘到线矩形精确求距**——原 `max(宽,高)/2` 圆形近似对 SOT-23-5 等长焊盘过度伸出,把 0.30mm 真实间距误报为 0.05mm。改为 RECT 焊盘按真实旋转矩形求距(走线段旋入焊盘本地系 → 线段到 AABB 最短距 − 线半宽),非矩形回退圆形;新增 `padRectToSegClearanceMil`/`segmentToBoxDistance`/`segmentToSegmentDistance`(内联于 [src/index.ts](src/index.ts))。
+> - **`getState_Rotation()` 返回弧度(非度数)**——原 `× π/180` 把 -π/2 当成 ≈0°,使长边被当竖直;修正为直接当弧度用,误报消除。
+> - **同网络跳过 + 网络推断**——遵循「只检不同网络(含未分配)」;贴片焊盘 `getState_Net()` 返回 undefined,改为网络集 = 自身 ∪ 相接走线/过孔网络 ∪ 所在铜皮网络 ∪ `getConnectedPrimitives()` 连通网络,两图元网络集相交即同网络并跳过。
+>
+> **第五轮修复(菜单精简,已落地)**
+> - **报告/日志菜单移除**——原 PCB 头部菜单 5 项(PCB DFM / SMT DFM / PCB 报告 / SMT 报告 / 日志)精简为 2 项(仅 PCB DFM / SMT DFM)。报告导出改为结果明细 IFrame 右上角「导出」按钮触发(按当前结果类型分派 `exportPcbReport`/`exportSmtReport`);底部日志面板在执行检查时自动打开。`exportPcbReport`/`exportSmtReport` 保留供 IFrame 调用,`showLog` 已无菜单引用(保留备用)。
+
+> **第六轮新增(同网络焊盘间距独立菜单,已落地)**
+> - **新增第三个 PCB 菜单「同网络焊盘间距」**——独立于 PCB/SMT DFM 标准检查,检测同一网络、同一层焊盘两两之间的边到边间距,低于手动设定阈值(焊接连锡/阻焊桥风险)即报违规。
+> - **手动间距输入**——点菜单弹 [spacing-input.html](iframe/spacing-input.html) 输入框(默认 0.2mm,0.05–5),确认后跑检查;阈值由用户设定,不依赖板材标准表。
+> - **权威网络映射**——贴片焊盘 `getState_Net()` 对 SMT 焊盘常返回 undefined,改用 `eda.pcb_Net.getAllNetsName()` + `getAllPrimitivesByNet(name)` 构建 `netById`(primitiveId→netName)权威映射,查不到再回退 `getState_Net()`。
+> - **圆近似几何**——按 网络+层 分组(不同层不比较),组内两两边到边 = 中心距 − r1 − r2(r=max(宽,高)/2);`edge<0`(相接/重叠)视为同网络正常连接跳过,`0≤edge<阈值` 报违规。违规行可点击定位、结果窗可导出 `.xlsx`。
+> - **报告导出统一 `.xlsx`**——PCB/SMT/间距三类报告均改用 `generateDfmXlsxBlob`([src/dfm/xlsx.ts](src/dfm/xlsx.ts),jszip 拼 OOXML,两 sheet:检查结果/违规明细),原 `.txt` 导出已移除;底部日志改为纯文本行(检查项:通过/不通过 + 原因 + 图元 id),错误违规行可点击 `[点击定位]` 定位画布(`data-log-find-type="rect"`)。
 
 ---
 
 ## 一、核心需求
 
-### 1.1 菜单结构(5 个菜单项,挂在 PCB 编辑器头部菜单 `headerMenus.pcb`)
+### 1.1 菜单结构(3 个菜单项,挂在 PCB 编辑器头部菜单 `headerMenus.pcb`)
 
 | 菜单项 | 功能 | 使能条件 |
 |--------|------|----------|
 | **PCB DFM** | 执行 PCB 18 项检查,结果入日志面板 + 弹出可点击明细 | 始终可用 |
 | **SMT DFM** | 先弹「经济型/标准型」选择框,再执行 5 项检查 | 始终可用 |
-| **PCB DFM 报告** | 弹保存路径对话框,导出 PCB 报告 | **仅在 PCB 检查完成后使能** |
-| **SMT DFM 报告** | 弹保存路径对话框,导出 SMT 报告 | **仅在 SMT 检查完成后使能** |
-| **日志** | 打开底部日志面板并筛选 DFM 相关日志 | 始终可用 |
+| **同网络焊盘间距** | 弹框输入最小间距(mm),检测同网络同层焊盘间距(独立于 18 项) | 始终可用 |
+
+> 报告导出与日志不再单列菜单:报告由结果明细 IFrame 右上角「导出」按钮触发(按当前结果类型导出 PCB/SMT);底部日志面板在执行检查时自动打开。`exportPcbReport`/`exportSmtReport` 保留供 IFrame 调用,`showLog` 已无菜单引用(保留备用)。
 
 > 菜单注册见 [extension.json](extension.json) 的 `headerMenus.pcb.dfmMenuGroup`,函数名与导出一致。
 
@@ -73,10 +93,10 @@
 ```
 pro-api-sdk/
 ├── src/
-│   ├── index.ts                 # 入口,导出 5 个菜单函数 + 检查编排(已实现)
+│   ├── index.ts                 # 入口,导出 2 个菜单函数(pcbDfm/smtDfm)+ IFrame 导出/定位等命令(已实现)
 │   └── dfm/
-│       ├── types.ts             # 类型定义(完整)
-│       ├── standards.ts         # 嘉立创 6 种板材 + 2 套 SMT 标准(完整)
+│       ├── types.ts             # 类型定义(含 SHARED_DFM_STANDARDS 共用常量 + 分段子接口,完整)
+│       ├── standards.ts         # 嘉立创 5 种板材(删除 CEM-1)+ 2 套 SMT 标准(分段表重构,完整)
 │       ├── geometry.ts          # 自研几何运算:线段间距、点-线段距离、焊环计算
 │       └── locate.ts            # 定位服务:按 primitiveId 选中 + 缩放
 ├── iframe/
@@ -86,7 +106,7 @@ pro-api-sdk/
 │   ├── dfm-dialog.html          # 遗留页面,当前无代码引用,暂不启用
 │   └── index.html               # SDK 示例页(保留)
 ├── images/logo.png              # 插件 Logo
-├── extension.json               # 扩展清单(已配置 5 菜单)
+├── extension.json               # 扩展清单(已配置 2 菜单:PCB/SMT 检查)
 └── README.md                    # 说明文档(需由 SDK 默认改写为插件说明)
 ```
 
@@ -97,7 +117,7 @@ pro-api-sdk/
 ```
 菜单点击 → (PCB) 板材/板厚弹窗 → 采集图元/图层 + 解析文档源(LAYER_PHYS 铜厚、盲埋孔规则)
        → 逐项比对标准 → 日志面板输出摘要 + IFrame 弹出可点击明细
-       → (报告菜单使能) → 保存路径对话框 → 导出 .txt 报告
+       → (明细 IFrame「导出」按钮) → 保存路径对话框 → 导出 .txt 报告
 ```
 
 ---
@@ -133,7 +153,7 @@ pro-api-sdk/
 |---|--------|----------|--------|------|
 | 12 | 最小线宽 | `line.getState_LineWidth()` | ✅ | 与 `minTraceWidth` 比对 |
 | 13 | 最小线距 | **自研线段间距运算** | 🟠 自研几何 | SDK 无距离 API |
-| 14 | 焊盘/过孔到线间距 | **自研点-线段距离运算** | 🟠 自研几何 | 同上 |
+| 14 | 焊盘/过孔到线间距 | **自研矩形精确求距(RECT 焊盘)+ 网络推断** | 🟠 自研几何 | RECT 焊盘按旋转矩形求距、非矩形回退圆形;同网络(连通/相接/同铜皮)跳过 |
 | 15 | 有铜插件焊盘焊环 | pad 外径 − 孔径,插件孔判定 | 🟠 自研几何 | 与 `minPluginPadRingWithCopper` 比对 |
 | 16 | 无铜插件焊盘焊环 | 同上(无铜) | 🟠 自研几何 | 与 `minPluginPadRingWithoutCopper` 比对 |
 
@@ -196,12 +216,18 @@ pro-api-sdk/
 - **底部日志面板**(`eda.sys_PanelControl.openBottomPanel(ESYS_BottomPanelTab.LOG)`):输出表头 + 逐项摘要文本(编号/项目/实际值/标准值/结果),满足「日志面板展示」字面要求。
 - **IFrame 可点击明细**(`eda.sys_IFrame.openIFrame('./iframe/dfm-results.html', ...)`):展示带坐标的违规明细表,点击违规行 → 调用定位服务选中并缩放对应元素,满足「点击高亮」硬需求。
 
+> **更新(2026-06-22):`sys_Log` 实际支持 HTML 可点击定位** —— 上面"不支持点击回调"的判断不准确。`eda.sys_Log.add(msg, type)` 的 `msg` 支持HTML,用 `<span class="link clicked" data-log-find-id="{primitiveId}" data-log-find-type="rect">文字</span>` 包裹后,"文字"在日志面板里就是可点击链接,点一下 EDA 原生定位(选中+缩放)到 `data-log-find-id` 对应的图元。`data-log-find-type="rect"` 表示矩形区域定位。
+>
+> **应用到 DFM**:每条违规已带 primitiveId(走线/焊盘/过孔的 `getState_PrimitiveId()` 或 `getPrimitiveId()`,即 [src/dfm/types.ts](src/dfm/types.ts) 的 `ViolationCoord.id`),输出违规日志时可包成上述 span,用户点违规行 → 原生定位,可**省去 IFrame 点击回调链 + `doSelectPrimitives`/`navigateToCoordinates`**。`eda.pcb_Primitive*.getAllPrimitiveId()` 可批量取 id。
+>
+> **待办**:把 DFM 结果的日志摘要输出改为可点击 span(非违规行/表头保持纯文本),作为 IFrame 明细的补充或替代。需先验证:`data-log-find-type` 除了 `rect` 是否还有别的值(如点/线区分),是否所有图元类型都支持。
+
 ### 5.2 交互流程
 
 1. **PCB DFM**:点击菜单 → 弹「板材类型 / 板厚」填写框 → 采集数据 → 18 项检查 → 日志摘要 + 明细 IFrame。
 2. **SMT DFM**:点击菜单 → 弹「经济型/标准型」单选框 + 确定 → 5 项检查 → 日志摘要 + 明细 IFrame。
-3. **报告**:检查完成后对应报告菜单使能;点击 → `sys_FileSystem.saveFile()` 保存路径对话框 → 导出 `.txt`。
-4. **日志**:打开底部面板,`eda.sys_Log.find(['DFM','嘉立创','检查'])` 筛选。
+3. **报告**:结果明细 IFrame 右上角「导出」按钮 → `sys_FileSystem.saveFile()` 保存路径对话框 → 导出 `.txt`(按当前 PCB/SMT 结果类型)。
+4. **日志**:执行检查时自动打开底部日志面板(`eda.sys_Log.find(['DFM','嘉立创','检查'])` 筛选)。
 
 ### 5.3 明细表列结构(与需求表头一致)
 
@@ -245,10 +271,15 @@ const mm = eda.sys_Unit.milToMm(valueMil); // 比对前一律换算
 ```typescript
 // 用户选择板材后,取出该板材的完整标准
 const standard = JLC_MATERIAL_STANDARDS[userMaterial]; // e.g. FR4 → MaterialStandard
-// 后续 8~18 项均以 standard 内的阈值比对
+// 随层数/铜厚分段的项经 resolve* 取阈值:
+//   resolveMaxSize(standard, layerCount)         // 第 3 项尺寸(FR4 按层数)
+//   resolveViaSpec(standard, layerCount)         // 第 9 项过孔/焊盘(按单/双/多层)
+//   resolveSlotWithCopper(standard, layerCount)  // 第 9-10 项有铜槽
+//   resolveMinTrace(standard, outerCopperOz)     // 第 12/13 项线宽/线距(按铜厚)
+// 字符/焊环/BGA 等共用阈值取自 SHARED_DFM_STANDARDS
 ```
 
-> 弹窗([material-selector.html](iframe/material-selector.html))只采集「板材类型 + 板厚」;铜厚与过孔类型不向用户索取,均从文档源解析。
+> 弹窗([material-selector.html](iframe/material-selector.html))只采集「板材类型 + 板厚」;铜厚与过孔类型不向用户索取,均从文档源解析。(弹窗 5 种板材,已删 CEM-1。)
 
 ### 6.4 自研几何运算(`src/dfm/geometry.ts`)
 
@@ -259,6 +290,8 @@ SDK 无距离/间距/相交 API,需自行实现:
 - 焊环宽度 = pad 外径 − 孔径(第 15/16 项)
 - BGA 焊盘识别与间距(第 17 项)
 - 可借助 `eda.pcb_MathPolygon.discretize()` 将多边形图元离散为点参与计算。
+- **矩形焊盘到线精确求距(第 14 项,index.ts 内联)**:RECT 焊盘按真实旋转矩形算——走线段旋入焊盘本地坐标系(`getState_Rotation()` 返回**弧度**),求线段到焊盘 AABB `[-halfW,halfW]×[-halfH,halfH]` 的最短距再减线半宽;非矩形焊盘回退 `max(宽,高)/2` 圆形近似。辅助函数 `padRectToSegClearanceMil`/`segmentToBoxDistance`/`segmentToSegmentDistance`。
+- **同网络判定(第 14 项)**:贴片焊盘 `getState_Net()` 返回 undefined,焊盘网络集 = 自身 ∪ 相接走线/过孔网络 ∪ 所在铜皮网络 ∪ `getConnectedPrimitives()` 连通网络;两图元网络集相交即同网络,跳过(只报不同网络/未分配)。
 
 ### 6.5 按元素 ID 定位(`src/dfm/locate.ts`)
 
@@ -336,6 +369,7 @@ await eda.pcb_Document.navigateToCoordinates(violation.x, violation.y); // 或 z
 > - `EPCB_PrimitiveViaType.BLIND` 把盲孔/埋孔合并,不能直接区分;盲/埋判定走 `designRuleBlindViaName` + 文档源盲埋孔规则(见 3.5)。
 > - **覆铜≠Region**:`pcb_PrimitiveRegion` 是区域图元(非覆铜),覆铜用 `pcb_PrimitivePour`(边框)/`pcb_PrimitivePoured`(填充);误用 Region 会导致有铜层判定为 0。
 > - 焊盘孔/形状是**元组**(`['ROUND',d]`/`['SLOT',d,l]`/`['ELLIPSE',w,h]`),孔类型为字符串枚举 `'ROUND'`/`'SLOT'`(非数字 0/1);勿用 `hole.type`/`hole.width`。
+> - **`getState_Rotation()` 返回弧度(非度数)**:如 -π/2 表示 -90°;第 14 项矩形焊盘求距直接当弧度用,**不要** `× π/180`,否则长焊盘会被当成竖直导致误报。
 
 ---
 
@@ -346,21 +380,23 @@ await eda.pcb_Document.navigateToCoordinates(violation.x, violation.y); // 或 z
 - ✅ 盲孔 / 埋孔单独识别(第 7 项)
 - ✅ 混合展示:日志面板摘要 + IFrame 可点击明细
 - ✅ 点击违规坐标定位高亮元素
-- ✅ PCB/SMT 报告导出(菜单按结果使能)
+- ✅ PCB/SMT 报告导出(明细 IFrame「导出」按钮,按结果类型)
 - ✅ 上架材料:README(重写)+ Logo(已有)+ `.eext` 打包
 
 ---
 
 ## 十、附录:嘉立创工艺标准参考
 
-### 支持板材(详见 [standards.ts](src/dfm/standards.ts) `JLC_MATERIAL_STANDARDS`)
-- **FR4**:1–64 层,0.4–6.0 mm,支持盲埋孔(可区分盲/埋),最小线宽/线距 0.15 mm
-- **CEM-1**:1–2 层,0.8–2.0 mm,仅通孔
-- **铝基板**:1–2 层,0.5–3.0 mm,仅通孔
-- **铜基板**:1–2 层,1.0–3.0 mm,仅通孔
-- **高频板**:1–32 层,0.4–3.0 mm,仅通孔
-- **HDI 板**:4–32 层,0.4–2.5 mm,支持盲埋孔(可区分盲/埋),最小线宽/线距 0.1 mm
+### 支持板材(5 种,详见 [standards.ts](src/dfm/standards.ts) `JLC_MATERIAL_STANDARDS`;CEM-1 已删除)
+> 标准值取自 `板材标准.txt`,部分参数按层数/铜厚分段(详见文首「第三轮修复」);下表为概要,精确阈值以 `resolve*` 函数返回为准。
 
+- **FR4**:1-64 层,板厚 0.4-4.8 mm,支持盲埋孔(可区分盲/埋);最大尺寸按层数 4 档(`maxSizeByLayers`)、线宽/线距按铜厚 7 档(`traceSpecsByCopper`,1oz 0.10 → 6oz 0.45),焊盘到线 0.1 mm
+- **HDI 板**:4-32 层,板厚 0.5-2.4 mm,支持盲埋孔(盲 0.075-0.15 / 埋 0.15-0.55),最小线宽/线距 0.075 mm,焊盘到线 0.15 mm
+- **高频板**:2 层,板厚 0.51/0.76/1.52 mm(`thicknessValues`),仅通孔,最小线宽/线距 0.1 mm
+- **铝基板**:1 层,板厚 0.8/1.0/1.2/1.6 mm(`thicknessValues`),仅通孔,最小线宽/线距 0.1 mm
+- **铜基板**:2 层,板厚 1.0/1.2/1.6 mm(`thicknessValues`),仅通孔,最小线宽/线距 0.1 mm
+
+> 字符高度/宽度、字符到铜间距、插件焊环(有铜 0.15 / 无铜 0.2)、BGA 焊盘直径(0.25)等为各板材**共用**,见 `SHARED_DFM_STANDARDS`。
 ### SMT 双标准(`SMT_STANDARDS`)
 - **经济型**:2/4/6 层,0.8–1.6 mm,10×10–470×570 mm,最小 0402
 - **标准型**:层数/板厚不限,70×70–460×510 mm,最小 0201
