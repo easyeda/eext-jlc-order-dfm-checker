@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+    <title>PCB 板材选择</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        /* ===== 深色专业 设计令牌(三窗口共用) ===== */
+        :root {
+            --bg-page: #15171c;
+            --bg-surface: #1e2128;
+            --bg-elevated: #262a33;
+            --bg-hover: #2d323d;
+            --bg-header: #1a1d24;
+            --border: #333945;
+            --border-strong: #404653;
+            --text-primary: #e8eaed;
+            --text-secondary: #a2a8b4;
+            --text-muted: #6b7280;
+            --accent: #6366f1;
+            --accent-hover: #5457e5;
+            --accent-soft: rgba(99, 102, 241, 0.14);
+            --success: #34d399;
+            --warning: #fbbf24;
+            --error: #f87171;
+            --radius: 6px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+            background: var(--bg-page);
+            color: var(--text-primary);
+            overflow: hidden;
+            user-select: none;
+            accent-color: var(--accent);
+        }
+
+        .dialog-container {
+            width: 100%;
+            height: 100vh;
+            background: var(--bg-surface);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-area {
+            flex: 1;
+            padding: 22px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .form-label .required {
+            color: var(--error);
+            margin-left: 2px;
+        }
+
+        .form-input,
+        .form-select {
+            height: 36px;
+            padding: 0 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 13.5px;
+            color: var(--text-primary);
+            background: var(--bg-elevated);
+            transition: border-color 0.15s, box-shadow 0.15s;
+            width: 100%;
+        }
+
+        .form-input::placeholder { color: var(--text-muted); }
+
+        /* 自定义下拉箭头(深色适配) */
+        .form-select {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='%23a2a8b4' d='M2 4l4 4 4-4z'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 32px;
+        }
+        .form-select option { background: var(--bg-elevated); color: var(--text-primary); }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: -4px;
+        }
+
+        .button-area {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        .dialog-button {
+            min-width: 84px;
+            height: 36px;
+            border: 1px solid transparent;
+            border-radius: var(--radius);
+            font-size: 13.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-cancel {
+            background: transparent;
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+        .btn-cancel:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+
+        .btn-confirm {
+            background: var(--accent);
+            color: #ffffff;
+        }
+        .btn-confirm:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+        }
+        .btn-confirm:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="dialog-container">
+
+        <div class="content-area">
+            <div class="form-group">
+                <label class="form-label">板材类型<span class="required">*</span></label>
+                <select class="form-select" id="materialType">
+                    <option value="FR4">FR4 (环氧树脂)</option>
+                    <option value="铝基板">铝基板</option>
+                    <option value="铜基板">铜基板</option>
+                    <option value="高频板">高频板</option>
+                    <option value="HDI板">HDI 板</option>
+                </select>
+                <div class="form-hint">选择板材将决定后续检查的标准阈值</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">板厚 (mm)<span class="required">*</span></label>
+                <input type="number" class="form-input" id="boardThickness"
+                       placeholder="请输入板厚" step="0.1" min="0.1" max="10.0" value="1.6">
+                <div class="form-hint">范围: 0.1 - 10.0 mm (不同板材支持范围不同)</div>
+            </div>
+
+            <div class="button-area">
+                <button class="dialog-button btn-cancel" id="cancelBtn">取消</button>
+                <button class="dialog-button btn-confirm" id="confirmBtn">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cancelBtn = document.getElementById('cancelBtn');
+        const confirmBtn = document.getElementById('confirmBtn');
+        const materialType = document.getElementById('materialType');
+        const boardThickness = document.getElementById('boardThickness');
+
+        // 取消按钮 - 关闭当前iframe
+        cancelBtn.addEventListener('click', function() {
+            if (window.eda && window.eda.sys_IFrame) {
+                window.eda.sys_IFrame.closeIFrame('materialSelector');
+            }
+        });
+
+        // 确定按钮 - 调用 PCB DFM 检查
+        confirmBtn.addEventListener('click', async function() {
+            const material = materialType.value;
+            const thickness = parseFloat(boardThickness.value);
+
+            // 验证输入
+            if (!thickness || thickness <= 0) {
+                alert('请输入有效的板厚');
+                return;
+            }
+
+            // 禁用确定按钮，防止重复点击
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '检查中...';
+
+            try {
+                // 调用扩展函数保存材料信息
+                if (window.eda && window.eda.setMaterialInput) {
+                    window.eda.setMaterialInput(material, thickness);
+                }
+
+                // 调用 PCB DFM 检查（等待完成）
+                if (window.eda && window.eda.pcbDfmWithMaterial) {
+                    await window.eda.pcbDfmWithMaterial(material, thickness);
+                } else {
+                    throw new Error('无法访问 DFM 检查函数，请确保扩展已正确加载');
+                }
+            } catch (error) {
+                console.error('PCB DFM 检查失败:', error);
+                alert('检查失败：' + error);
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '确定';
+                return; // 检查失败时不关闭对话框
+            }
+
+            // 检查完成后关闭对话框
+            if (window.eda && window.eda.sys_IFrame) {
+                window.eda.sys_IFrame.closeIFrame('materialSelector');
+            }
+        });
+    </script>
+</body>
+</html>

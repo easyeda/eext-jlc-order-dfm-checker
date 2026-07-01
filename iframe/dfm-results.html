@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+    <title>DFM 检查结果</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        /* ===== 深色专业 设计令牌(三窗口共用) ===== */
+        :root {
+            --bg-page: #15171c;
+            --bg-surface: #1e2128;
+            --bg-elevated: #262a33;
+            --bg-hover: #2d323d;
+            --bg-header: #1a1d24;
+            --border: #333945;
+            --border-strong: #404653;
+            --text-primary: #e8eaed;
+            --text-secondary: #a2a8b4;
+            --text-muted: #6b7280;
+            --accent: #6366f1;
+            --accent-hover: #5457e5;
+            --accent-soft: rgba(99, 102, 241, 0.14);
+            --success: #34d399;
+            --success-bg: rgba(16, 185, 129, 0.12);
+            --warning: #fbbf24;
+            --warning-bg: rgba(245, 158, 11, 0.13);
+            --error: #f87171;
+            --error-bg: rgba(239, 68, 68, 0.13);
+            --radius: 6px;
+            --font-mono: 'Consolas', 'Cascadia Code', 'Courier New', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+            background: var(--bg-page);
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+
+        .results-container { width: 100%; height: 100vh; display: flex; flex-direction: column; }
+
+        /* 顶部工具条:统计 + 过滤 + 导出 */
+        .toolbar {
+            display: flex; align-items: center;
+            gap: 12px; padding: 10px 16px;
+            background: var(--bg-surface); border-bottom: 1px solid var(--border);
+        }
+        .summary { font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .summary .s-title { color: var(--text-primary); font-weight: 600; }
+        .summary .s-sep { color: var(--border-strong); }
+        .summary .s-ok { color: var(--success); font-weight: 600; }
+        .summary .s-warn { color: var(--warning); font-weight: 600; }
+        .summary .s-err { color: var(--error); font-weight: 600; }
+
+        .toolbar-actions { display: flex; gap: 8px; margin-left: auto; }
+
+        /* 顶部过滤分段控件(全部/已通过/未通过) */
+        .filter-group { display: flex; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+        .filter-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; font-size: 12.5px; color: var(--text-secondary); background: transparent; border: none; border-right: 1px solid var(--border); cursor: pointer; transition: all 0.15s; user-select: none; font-family: inherit; }
+        .filter-btn:last-child { border-right: none; }
+        .filter-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+        .filter-btn.active { color: var(--accent); background: var(--accent-soft); }
+        .filter-btn .fc { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--bg-page); color: var(--text-muted); font-weight: 600; }
+        .filter-btn.active .fc { background: var(--accent); color: #fff; }
+        .tool-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            height: 30px; padding: 0 12px; font-size: 12.5px;
+            color: var(--text-secondary); background: var(--bg-elevated);
+            border: 1px solid var(--border); border-radius: var(--radius);
+            cursor: pointer; transition: all 0.15s; user-select: none;
+        }
+        .tool-btn:hover { color: var(--text-primary); background: var(--bg-hover); border-color: var(--border-strong); }
+        .tool-btn.active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
+        .tool-btn:disabled { opacity: 0.5; cursor: default; }
+
+        .results-content { flex: 1; display: flex; padding: 14px; overflow: hidden; min-height: 0; }
+        .results-content > .empty-state { margin: auto; }
+        /* 表格视图 / 明细视图:二选一显示,切换由 viewMode 控制,避免同时占宽遮挡画布 */
+        .dfm-view { flex: 1 1 100%; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+        .dfm-view.is-hidden { display: none; }
+        .filter-group.is-hidden { display: none; }
+        .table-region { flex: 1 1 auto; min-width: 0; overflow: auto; }
+        .clickable-row { cursor: pointer; }
+
+        /* 右侧违规明细面板 */
+        .violations-panel { flex: 1 1 100%; display: flex; flex-direction: column; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .vp-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; background: var(--bg-header); border-bottom: 1px solid var(--border); }
+        .vp-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .vp-count { font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 10px; background: var(--error-bg); color: var(--error); }
+        .vp-body { flex: 1; overflow: auto; padding: 6px; }
+        .vp-group { border-radius: 6px; }
+        .vp-group.flash { animation: vpflash 1s ease; }
+        @keyframes vpflash { 0% { background: var(--accent-soft); } 100% { background: transparent; } }
+        .vp-group-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; position: sticky; top: 0; padding: 7px 8px 5px; font-size: 11.5px; font-weight: 600; background: var(--bg-surface); z-index: 1; }
+        .vp-group-header.is-error { color: var(--error); }
+        .vp-group-header.is-warn { color: var(--warning); }
+        .vp-group-count { font-size: 10.5px; padding: 1px 7px; border-radius: 9px; background: var(--bg-elevated); color: var(--text-secondary); }
+        .vp-item { padding: 6px 10px; margin: 2px 0; font-size: 12px; line-height: 1.5; font-family: var(--font-mono); color: var(--text-secondary); background: rgba(239, 68, 68, 0.06); border-left: 2px solid var(--error); border-radius: 0 4px 4px 0; cursor: pointer; }
+        .vp-item.is-warn { background: var(--warning-bg); border-left-color: var(--warning); }
+        .vp-item:hover { background: rgba(239, 68, 68, 0.18); color: var(--text-primary); }
+        .vp-item.is-warn:hover { background: rgba(245, 158, 11, 0.2); }
+        .vp-coord { color: var(--accent); font-weight: 600; }
+        .vp-empty { padding: 50px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
+        .vp-empty-icon { font-size: 34px; color: var(--success); margin-bottom: 10px; }
+        .vp-body::-webkit-scrollbar, .table-region::-webkit-scrollbar { width: 10px; height: 10px; }
+        .vp-body::-webkit-scrollbar-track, .table-region::-webkit-scrollbar-track { background: var(--bg-page); }
+        .vp-body::-webkit-scrollbar-thumb, .table-region::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; }
+        .vp-body::-webkit-scrollbar-thumb:hover, .table-region::-webkit-scrollbar-thumb:hover { background: #4b5263; }
+
+        .results-table {
+            width: 100%; border-collapse: collapse;
+            background: var(--bg-surface); border-radius: 8px; overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .results-table thead { background: var(--bg-header); }
+        .results-table th {
+            padding: 11px 10px; text-align: left; font-size: 12px; font-weight: 600;
+            color: var(--text-secondary); white-space: nowrap; border-bottom: 1px solid var(--border);
+        }
+        .results-table th:nth-child(1) { width: 50px; }
+        .results-table th:nth-child(2) { width: 150px; }
+        .results-table th:nth-child(3) { width: 160px; }
+        .results-table th:nth-child(4) { width: 150px; }
+        .results-table th:nth-child(5) { width: 84px; }
+        .results-table td {
+            padding: 10px 10px; border-bottom: 1px solid var(--border);
+            font-size: 13px; color: var(--text-primary); vertical-align: top;
+        }
+        .results-table td.mono { font-family: var(--font-mono); font-size: 12.5px; }
+        .results-table td.num { color: var(--text-secondary); font-family: var(--font-mono); }
+        .results-table tbody tr:last-child td { border-bottom: none; }
+        .results-table tbody tr:hover { background: var(--bg-hover); }
+        .results-table tbody tr.error-row { background: var(--error-bg); }
+        .results-table tbody tr.error-row:hover { background: rgba(239, 68, 68, 0.18); cursor: pointer; }
+        .results-table tbody tr.warning-row { background: var(--warning-bg); }
+        .results-table tbody tr.warning-row:hover { background: rgba(245, 158, 11, 0.18); cursor: pointer; }
+        .results-table tbody tr.detail-row { background: transparent; }
+        .results-table tbody tr.detail-row:hover { background: transparent; }
+
+        .result-badge {
+            display: inline-block; padding: 2px 9px; border-radius: 4px;
+            font-size: 12px; font-weight: 600; border: 1px solid transparent; white-space: nowrap;
+        }
+        .result-badge.success { color: var(--success); background: var(--success-bg); border-color: rgba(52, 211, 153, 0.3); }
+        .result-badge.warning { color: var(--warning); background: var(--warning-bg); border-color: rgba(251, 191, 36, 0.3); }
+        .result-badge.error { color: var(--error); background: var(--error-bg); border-color: rgba(248, 113, 113, 0.32); }
+
+        .violation-list { margin-top: 2px; display: flex; flex-direction: column; gap: 5px; }
+        .violation-item {
+            border: 1px solid rgba(248, 113, 113, 0.22); border-left: 2px solid var(--error);
+            border-radius: 4px; padding: 4px 10px; font-size: 12px;
+            color: var(--text-secondary); background: rgba(239, 68, 68, 0.06); font-family: var(--font-mono);
+        }
+        .violation-coord { color: var(--accent); cursor: pointer; }
+        .violation-coord:hover { color: var(--accent-hover); text-decoration: underline; }
+
+        .empty-state { text-align: center; padding: 70px 20px; color: var(--text-muted); }
+        .empty-state-icon { font-size: 44px; margin-bottom: 14px; opacity: 0.7; }
+
+        .results-content::-webkit-scrollbar { width: 10px; height: 10px; }
+        .results-content::-webkit-scrollbar-track { background: var(--bg-page); }
+        .results-content::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; }
+        .results-content::-webkit-scrollbar-thumb:hover { background: #4b5263; }
+    </style>
+</head>
+<body>
+    <div class="results-container">
+        <div class="toolbar">
+            <div class="summary" id="summary">加载中...</div>
+            <div class="filter-group" id="filterGroup">
+                <button class="filter-btn active" data-filter="all">全部 <span class="fc" id="fcAll">0</span></button>
+                <button class="filter-btn" data-filter="passed">已通过 <span class="fc" id="fcPassed">0</span></button>
+                <button class="filter-btn" data-filter="failed">未通过 <span class="fc" id="fcFailed">0</span></button>
+            </div>
+            <div class="toolbar-actions">
+                <button class="tool-btn" id="refreshBtn" title="重新读取最新 PCB/SMT 数据">&#8635; 刷新</button>
+                <button class="tool-btn" id="exportBtn" title="导出为 TXT">&#11015; 导出</button>
+                <button class="tool-btn" id="detailsBtn" title="切换结果表格/违规明细视图">&#128203; 错误明细</button>
+            </div>
+        </div>
+
+        <div class="results-content" id="resultsContent">
+            <div class="empty-state">
+                <div class="empty-state-icon">&#128203;</div>
+                <div>暂无检查结果</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let checkResults = null;
+        let checkType = '';
+        let filterMode = 'all';   // 'all' | 'passed' | 'failed'
+        // 明细由独立窄 iframe(dfm-results.html?view=details)承载,以真正收窄尺寸;
+        // 本窗据此初始化视图:主窗(dfmResults)=表格,明细窗(dfmDetails)=明细
+        const isDetailsMode = new URLSearchParams(location.search).get('view') === 'details';
+        let viewMode = isDetailsMode ? 'details' : 'table';
+
+        const exportBtn = document.getElementById('exportBtn');
+
+        // 顶部过滤:全部 / 已通过 / 未通过
+        document.getElementById('filterGroup').addEventListener('click', function (e) {
+            const btn = e.target.closest('.filter-btn');
+            if (!btn) return;
+            filterMode = btn.getAttribute('data-filter');
+            document.querySelectorAll('.filter-btn').forEach(function (b) {
+                b.classList.toggle('active', b === btn);
+            });
+            renderResults();
+        });
+
+        // 导出:调用扩展按当前结果类型导出 TXT(弹出保存路径选择)
+        exportBtn.addEventListener('click', async function () {
+            if (window.eda && window.eda.exportCurrentReport) {
+                exportBtn.disabled = true;
+                const old = exportBtn.innerHTML;
+                exportBtn.innerHTML = '&#8987; 导出中...';
+                try { await window.eda.exportCurrentReport(); }
+                finally { exportBtn.innerHTML = old; exportBtn.disabled = false; }
+            }
+        });
+
+        // 刷新:调用扩展按当前类型用上次板材/标准重跑检查,原地重渲染(不重开窗口)
+        const refreshBtn = document.getElementById('refreshBtn');
+        refreshBtn.addEventListener('click', async function () {
+            if (!(window.eda && window.eda.refreshDfmResults)) return;
+            refreshBtn.disabled = true;
+            const old = refreshBtn.innerHTML;
+            refreshBtn.innerHTML = '&#8987; 刷新中...';
+            try {
+                const data = await window.eda.refreshDfmResults();
+                if (data && data.results) {
+                    checkResults = data.results;
+                    checkType = data.type || checkType;
+                    renderResults();
+                }
+            }
+            finally {
+                refreshBtn.innerHTML = old;
+                refreshBtn.disabled = false;
+            }
+        });
+
+        // 「错误明细」按钮:在表格主窗与明细窄窗之间切换(由扩展 hide/show 两个不同尺寸 iframe 实现)
+        const detailsBtn = document.getElementById('detailsBtn');
+        detailsBtn.addEventListener('click', function () {
+            if (isDetailsMode) {
+                if (window.eda && window.eda.backToDfmTable) window.eda.backToDfmTable();
+            } else {
+                if (window.eda && window.eda.openDfmDetails) window.eda.openDfmDetails();
+            }
+        });
+        function updateDetailsBtn() {
+            const b = document.getElementById('detailsBtn');
+            if (!b) return;
+            b.innerHTML = viewMode === 'table' ? '&#128203; 错误明细' : '&#9664; 返回结果';
+            b.classList.toggle('active', viewMode === 'details');
+        }
+
+        function renderResults() {
+            if (!checkResults || !checkResults.results) return;
+
+            const content = document.getElementById('resultsContent');
+            const summary = document.getElementById('summary');
+
+            const total = checkResults.results.length;
+            const passed = checkResults.results.filter(r => r.result === 'success').length;
+            const errors = checkResults.errorCount || 0;
+            const warnings = checkResults.warningCount || 0;
+            const typeName = checkType === 'pcb' ? 'PCB DFM' : checkType === 'smt' ? 'SMT DFM' : '同网络焊盘间距';
+
+            summary.innerHTML =
+                '<span class="s-title">' + typeName + '</span>' +
+                '<span class="s-sep">&#183;</span><span>共 ' + total + ' 项</span>' +
+                (warnings > 0 ? '<span class="s-sep">&#183;</span><span class="s-warn">&#9888; 警告 ' + warnings + '</span>' : '');
+
+            // 顶部过滤按钮计数
+            document.getElementById('fcAll').textContent = total;
+            document.getElementById('fcPassed').textContent = passed;
+            document.getElementById('fcFailed').textContent = errors + warnings;
+
+            // 左:紧凑表格(每项一行,不再内嵌违规明细)
+            let tableHtml = '<table class="results-table">';
+            tableHtml += '<thead><tr><th>编号</th><th>检测项目</th><th>标准值</th><th>实际值</th><th>结果</th></tr></thead>';
+            tableHtml += '<tbody>';
+
+            let shown = 0;
+            for (const result of checkResults.results) {
+                if (filterMode === 'passed' && result.result !== 'success') continue;
+                if (filterMode === 'failed' && result.result === 'success') continue;
+                shown++;
+
+                const hasV = result.violations && result.violations.length > 0;
+                const rowClass = (result.result === 'error' ? 'error-row' : result.result === 'warning' ? 'warning-row' : '') + (hasV ? ' clickable-row' : '');
+                const badgeClass = result.result;
+                const badgeText = result.result === 'success' ? 'OK' : result.result === 'warning' ? '警告' : '未通过';
+
+                tableHtml += '<tr class="' + rowClass + '" data-number="' + result.number + '">';
+                tableHtml += '<td class="num">' + result.number + '</td>';
+                tableHtml += '<td>' + result.item + '</td>';
+                tableHtml += '<td class="mono">' + result.standardValue + '</td>';
+                tableHtml += '<td class="mono">' + result.actualValue + '</td>';
+                tableHtml += '<td><span class="result-badge ' + badgeClass + '">' + badgeText + '</span></td>';
+                tableHtml += '</tr>';
+            }
+            tableHtml += '</tbody></table>';
+
+            // 右:全部违规平铺(按检测项目分组)
+            const vItems = checkResults.results.filter(r => r.violations && r.violations.length > 0);
+            const totalV = vItems.reduce((n, r) => n + r.violations.length, 0);
+
+            let panelHtml = '<div class="violations-panel">';
+            panelHtml += '<div class="vp-header"><div class="vp-title">&#9888; 违规明细</div><span class="vp-count">' + totalV + ' 条</span></div>';
+            panelHtml += '<div class="vp-body" id="vpBody">';
+
+            if (totalV === 0) {
+                panelHtml += '<div class="vp-empty"><div class="vp-empty-icon">&#10003;</div><div>无违规项,全部通过</div></div>';
+            } else {
+                for (const r of vItems) {
+                    const sev = r.result === 'warning' ? 'is-warn' : 'is-error';
+                    panelHtml += '<div class="vp-group" id="vpgrp-' + r.number + '">';
+                    panelHtml += '<div class="vp-group-header ' + sev + '"><span>#' + r.number + ' ' + r.item + '</span><span class="vp-group-count">' + r.violations.length + '</span></div>';
+                    for (const v of r.violations) {
+                        panelHtml += '<div class="vp-item ' + sev + '" data-id="' + v.id + '" data-x="' + v.x + '" data-y="' + v.y + '" data-type="' + v.type + '">';
+                        panelHtml += '<span class="vp-coord">(' + v.x.toFixed(2) + ', ' + v.y.toFixed(2) + ')</span> ' + v.reason;
+                        panelHtml += '</div>';
+                    }
+                    panelHtml += '</div>';
+                }
+            }
+            panelHtml += '</div></div>';
+
+            if (shown === 0) {
+                content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">&#10003;</div><div>没有警告或错误项,全部通过</div></div>';
+            } else {
+                content.innerHTML =
+                    '<div class="dfm-view' + (viewMode === 'table' ? '' : ' is-hidden') + '" id="tableView">' +
+                        '<div class="table-region">' + tableHtml + '</div>' +
+                    '</div>' +
+                    '<div class="dfm-view' + (viewMode === 'details' ? '' : ' is-hidden') + '" id="detailsView">' +
+                        panelHtml +
+                    '</div>';
+            }
+            document.getElementById('detailsBtn').disabled = (totalV === 0);
+            // 明细窗隐藏顶部过滤分段控件(仅对表格有意义)
+            document.getElementById('filterGroup').classList.toggle('is-hidden', viewMode === 'details');
+            updateDetailsBtn();
+            bindClickEvents();
+        }
+        function bindClickEvents() {
+            // 右侧违规项:点击定位到画布
+            document.querySelectorAll('.vp-item').forEach(function (el) {
+                el.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    locateViolation(this.getAttribute('data-id'), parseFloat(this.getAttribute('data-x')), parseFloat(this.getAttribute('data-y')), this.getAttribute('data-type'));
+                });
+            });
+            // 左侧表格行:点击打开明细窄窗
+            document.querySelectorAll('.clickable-row').forEach(function (row) {
+                row.addEventListener('click', function () {
+                    if (window.eda && window.eda.openDfmDetails) window.eda.openDfmDetails();
+                });
+            });
+        }
+        function locateViolation(id, x, y, type) {
+            if (window.eda && window.eda.locateViolation) {
+                window.eda.locateViolation(id, x, y, type);
+            } else {
+                console.log('Locate:', { id: id, x: x, y: y, type: type });
+            }
+        }
+
+        if (window.eda && window.eda.getDFMResults) {
+            const resultsData = window.eda.getDFMResults();
+            if (resultsData) {
+                checkResults = resultsData.results;
+                checkType = resultsData.type || 'pcb';
+                renderResults();
+            }
+        }
+
+        if (window.eda) {
+            window.eda.onResultsUpdated = function (results, type) {
+                checkResults = results;
+                checkType = type;
+                renderResults();
+            };
+        } else {
+            console.warn('无法访问 eda 对象');
+        }
+    </script>
+</body>
+</html>

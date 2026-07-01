@@ -1,0 +1,33 @@
+/.git/
+/.husky/
+/.vscode/
+/.claude/
+/build/
+/config/
+/coverage/
+/node_modules/
+/src/
+/doc/
+/.editorconfig
+/.gitattributes
+/.gitignore
+/.npmrc
+/eslint.config.mjs
+/package-lock.json
+/package.json
+/tsconfig.json
+.eslintcache
+debug.log
+/ProDoc_PCB*.epro2
+/lceda-pro-file-format-v3_*/
+/README.en.md
+/README.ja.md
+/README.ru.md
+/README.zh-Hant.md
+
+# DFM checker: 运行时不加载的资源,排除以缩小 .eext
+# 遗留/模板页面,代码无引用
+/iframe/dfm-dialog.html
+/iframe/index.html
+# 打包忽略清单自身,运行时不读取
+/.edaignore
