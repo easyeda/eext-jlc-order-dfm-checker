@@ -15,6 +15,8 @@ export interface CheckResult {
 	number: number;
 	/** 检测项目名称 */
 	item: string;
+	/** 鼠标悬停描述(结果窗「检测项目」列 title;由 showDfmResults 按 item 名集中挂载) */
+	description?: string;
 	/** PCB实际值 */
 	actualValue: string;
 	/** 嘉立创标准值 */

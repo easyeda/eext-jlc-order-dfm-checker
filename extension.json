@@ -3,7 +3,7 @@
 	"uuid": "54195a4d50924d1ab77d65cb46c82a45",
 	"displayName": "嘉立创下单检查",
 	"description": "该工具提供了自动化的嘉立创DFM检查功能，能够识别潜在的设计问题并提供改进建议，确保你可以正常在嘉立创下单。",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"publisher": "EasyEDA",
 	"engines": {
 		"eda": "^3.0.0"

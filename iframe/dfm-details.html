@@ -119,7 +119,7 @@
             for (const r of vItems) {
                 const sev = r.result === 'warning' ? 'is-warn' : 'is-error';
                 html += '<div class="vp-group">';
-                html += '<div class="vp-group-header ' + sev + '"><span>#' + r.number + ' ' + r.item + '</span><span class="vp-group-count">' + r.violations.length + '</span></div>';
+                html += '<div class="vp-group-header ' + sev + '"><span' + (r.description ? ' title="' + r.description + '"' : '') + '>#' + r.number + ' ' + r.item + '</span><span class="vp-group-count">' + r.violations.length + '</span></div>';
                 for (const v of r.violations) {
                     html += '<div class="vp-item ' + sev + '" data-id="' + v.id + '" data-x="' + v.x + '" data-y="' + v.y + '" data-type="' + v.type + '">';
                     html += '<span class="vp-coord">(' + v.x.toFixed(2) + ', ' + v.y.toFixed(2) + ')</span> ' + v.reason;

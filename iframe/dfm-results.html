@@ -297,7 +297,7 @@
 
                 tableHtml += '<tr class="' + rowClass + '" data-number="' + result.number + '">';
                 tableHtml += '<td class="num">' + result.number + '</td>';
-                tableHtml += '<td>' + result.item + '</td>';
+                tableHtml += '<td' + (result.description ? ' title="' + result.description + '"' : '') + '>' + result.item + '</td>';
                 tableHtml += '<td class="mono">' + result.standardValue + '</td>';
                 tableHtml += '<td class="mono">' + result.actualValue + '</td>';
                 tableHtml += '<td><span class="result-badge ' + badgeClass + '">' + badgeText + '</span></td>';
@@ -319,7 +319,7 @@
                 for (const r of vItems) {
                     const sev = r.result === 'warning' ? 'is-warn' : 'is-error';
                     panelHtml += '<div class="vp-group" id="vpgrp-' + r.number + '">';
-                    panelHtml += '<div class="vp-group-header ' + sev + '"><span>#' + r.number + ' ' + r.item + '</span><span class="vp-group-count">' + r.violations.length + '</span></div>';
+                    panelHtml += '<div class="vp-group-header ' + sev + '"><span' + (r.description ? ' title="' + r.description + '"' : '') + '>#' + r.number + ' ' + r.item + '</span><span class="vp-group-count">' + r.violations.length + '</span></div>';
                     for (const v of r.violations) {
                         panelHtml += '<div class="vp-item ' + sev + '" data-id="' + v.id + '" data-x="' + v.x + '" data-y="' + v.y + '" data-type="' + v.type + '">';
                         panelHtml += '<span class="vp-coord">(' + v.x.toFixed(2) + ', ' + v.y.toFixed(2) + ')</span> ' + v.reason;

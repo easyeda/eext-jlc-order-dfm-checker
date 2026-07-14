@@ -1,6 +1,4 @@
 import type { CheckResult, PcbDfmResult, SmtDfmResult, SmtStandardConfig, ViolationCoord } from './dfm/types';
-import { SHARED_DFM_STANDARDS } from './dfm/types';
-import { generateDfmXlsxBlob } from './dfm/xlsx';
 /**
  * 嘉立创 DFM 检查工具 - 主入口文件
  *
@@ -12,7 +10,9 @@ import { generateDfmXlsxBlob } from './dfm/xlsx';
 import * as extensionConfig from '../extension.json';
 import { createLocateFunction } from './dfm/locate';
 import { checkSameNetPadSpacing } from './dfm/pad-spacing';
-import { JLC_MATERIAL_STANDARDS, JLC_SUPPORTED_MATERIALS, SMT_STANDARDS, isPackageSmaller, normalizeEiaPackage, resolveMaxSize, resolveMinTrace, resolveOuterCopper, resolveSlotWithCopper, resolveViaSpec } from './dfm/standards';
+import { isPackageSmaller, JLC_MATERIAL_STANDARDS, JLC_SUPPORTED_MATERIALS, normalizeEiaPackage, resolveMaxSize, resolveMinTrace, resolveOuterCopper, resolveSlotWithCopper, resolveViaSpec, SMT_STANDARDS } from './dfm/standards';
+import { SHARED_DFM_STANDARDS } from './dfm/types';
+import { generateDfmXlsxBlob } from './dfm/xlsx';
 
 // 注意：函数暴露代码移到文件末尾，确保所有函数已定义
 
@@ -958,11 +958,14 @@ async function checkHoleDiameter(): Promise<CheckResult> {
 		const hdiRangeOf = (kind: 'blind' | 'buried' | 'through'): { min: number; max: number } =>
 			kind === 'blind' ? { min: 0.075, max: 0.15 } : kind === 'buried' ? { min: 0.15, max: 0.55 } : { min: 0.15, max: 6.3 };
 		const hdiViaKind = (v: any): 'blind' | 'buried' | 'through' => {
-			if (!hdiRuleMap) return 'through';
+			if (!hdiRuleMap)
+				return 'through';
 			const name = v.designRuleBlindViaName ?? v.state?.designRuleBlindViaName ?? '';
-			if (!name) return 'through';
+			if (!name)
+				return 'through';
 			const rule = hdiRuleMap.get(name);
-			if (!rule) return 'through';
+			if (!rule)
+				return 'through';
 			return classifyBlindBuried(rule.staLayerId, rule.endLayerId);
 		};
 
@@ -1135,11 +1138,14 @@ async function checkViaPadDiameter(): Promise<CheckResult> {
 		const isHdi = selectedMaterial === 'HDI板';
 		const hdiRuleMap = isHdi ? await parseBlindViaRules() : null;
 		const hdiViaKind9 = (vv: any): 'blind' | 'buried' | 'through' => {
-			if (!hdiRuleMap) return 'through';
+			if (!hdiRuleMap)
+				return 'through';
 			const name = vv.designRuleBlindViaName ?? vv.state?.designRuleBlindViaName ?? '';
-			if (!name) return 'through';
+			if (!name)
+				return 'through';
 			const rule = hdiRuleMap.get(name);
-			if (!rule) return 'through';
+			if (!rule)
+				return 'through';
 			return classifyBlindBuried(rule.staLayerId, rule.endLayerId);
 		};
 		const allDiameters: number[] = [];
@@ -1156,7 +1162,6 @@ async function checkViaPadDiameter(): Promise<CheckResult> {
 				return 0;
 			return eda.sys_Unit.milToMm(Math.max(w, h));
 		};
-
 
 		// 1. 检查过孔外径
 		for (const [i, via] of vias.entries()) {
@@ -1668,7 +1673,6 @@ async function checkMinTraceSpacing(): Promise<CheckResult> {
 	return result;
 }
 
-
 function pointInPolygon(pt: { x: number; y: number }, poly: Array<{ x: number; y: number }>): boolean {
 	let inside = false;
 	for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -1695,7 +1699,8 @@ function segmentsIntersect(p1: { x: number; y: number }, p2: { x: number; y: num
  */
 function calculateLineSegmentDistance(seg1: { x1: number; y1: number; x2: number; y2: number }, seg2: { x1: number; y1: number; x2: number; y2: number }): number {
 	// Intersecting segments have zero distance (endpoint formula misses the crossing point)
-	if (segmentsIntersect({ x: seg1.x1, y: seg1.y1 }, { x: seg1.x2, y: seg1.y2 }, { x: seg2.x1, y: seg2.y1 }, { x: seg2.x2, y: seg2.y2 })) return 0;
+	if (segmentsIntersect({ x: seg1.x1, y: seg1.y1 }, { x: seg1.x2, y: seg1.y2 }, { x: seg2.x1, y: seg2.y1 }, { x: seg2.x2, y: seg2.y2 }))
+		return 0;
 	// 计算线段1的两个端点到线段2的距离
 	const d1 = pointToLineSegmentDistance(
 		{ x: seg1.x1, y: seg1.y1 },
@@ -1752,50 +1757,57 @@ function pointToLineSegmentDistance(point: { x: number; y: number }, line: { x1:
  * 第14项：焊盘/过孔到线间距检查
  */
 // ---- rectangle-exact pad-to-line clearance helpers (item 14) ----
-function p2sOrient(ax:number, ay:number, bx:number, by:number, cx:number, cy:number): number {
+function p2sOrient(ax: number, ay: number, bx: number, by: number, cx: number, cy: number): number {
 	return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
 }
-function p2sOnSeg(ax:number, ay:number, bx:number, by:number, cx:number, cy:number): boolean {
+function p2sOnSeg(ax: number, ay: number, bx: number, by: number, cx: number, cy: number): boolean {
 	const e = 1e-9;
 	return Math.min(ax, bx) - e <= cx && cx <= Math.max(ax, bx) + e && Math.min(ay, by) - e <= cy && cy <= Math.max(ay, by) + e;
 }
-function p2sSegsIntersect(ax:number, ay:number, bx:number, by:number, cx:number, cy:number, dx:number, dy:number): boolean {
+function p2sSegsIntersect(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number): boolean {
 	const e = 1e-9;
 	const d1 = p2sOrient(cx, cy, dx, dy, ax, ay);
 	const d2 = p2sOrient(cx, cy, dx, dy, bx, by);
 	const d3 = p2sOrient(ax, ay, bx, by, cx, cy);
 	const d4 = p2sOrient(ax, ay, bx, by, dx, dy);
-	if (((d1 > e && d2 < -e) || (d1 < -e && d2 > e)) && ((d3 > e && d4 < -e) || (d3 < -e && d4 > e))) return true;
-	if (Math.abs(d1) <= e && p2sOnSeg(cx, cy, dx, dy, ax, ay)) return true;
-	if (Math.abs(d2) <= e && p2sOnSeg(cx, cy, dx, dy, bx, by)) return true;
-	if (Math.abs(d3) <= e && p2sOnSeg(ax, ay, bx, by, cx, cy)) return true;
-	if (Math.abs(d4) <= e && p2sOnSeg(ax, ay, bx, by, dx, dy)) return true;
+	if (((d1 > e && d2 < -e) || (d1 < -e && d2 > e)) && ((d3 > e && d4 < -e) || (d3 < -e && d4 > e)))
+		return true;
+	if (Math.abs(d1) <= e && p2sOnSeg(cx, cy, dx, dy, ax, ay))
+		return true;
+	if (Math.abs(d2) <= e && p2sOnSeg(cx, cy, dx, dy, bx, by))
+		return true;
+	if (Math.abs(d3) <= e && p2sOnSeg(ax, ay, bx, by, cx, cy))
+		return true;
+	if (Math.abs(d4) <= e && p2sOnSeg(ax, ay, bx, by, dx, dy))
+		return true;
 	return false;
 }
-function p2sPointToSeg(px:number, py:number, ax:number, ay:number, bx:number, by:number): number {
-	const dx = bx - ax, dy = by - ay;
+function p2sPointToSeg(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+	const dx = bx - ax; const dy = by - ay;
 	const len2 = dx * dx + dy * dy;
-	if (len2 < 1e-18) return Math.hypot(px - ax, py - ay);
+	if (len2 < 1e-18)
+		return Math.hypot(px - ax, py - ay);
 	let tp = ((px - ax) * dx + (py - ay) * dy) / len2;
 	tp = Math.max(0, Math.min(1, tp));
 	return Math.hypot(px - (ax + tp * dx), py - (ay + tp * dy));
 }
-function segmentToSegmentDistance(ax:number, ay:number, bx:number, by:number, cx:number, cy:number, dx:number, dy:number): number {
-	if (p2sSegsIntersect(ax, ay, bx, by, cx, cy, dx, dy)) return 0;
+function segmentToSegmentDistance(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number): number {
+	if (p2sSegsIntersect(ax, ay, bx, by, cx, cy, dx, dy))
+		return 0;
 	return Math.min(
 		p2sPointToSeg(ax, ay, cx, cy, dx, dy),
 		p2sPointToSeg(bx, by, cx, cy, dx, dy),
 		p2sPointToSeg(cx, cy, ax, ay, bx, by),
-		p2sPointToSeg(dx, dy, ax, ay, bx, by)
+		p2sPointToSeg(dx, dy, ax, ay, bx, by),
 	);
 }
-function p2sPointToBox(x:number, y:number, a:number, b:number): number {
+function p2sPointToBox(x: number, y: number, a: number, b: number): number {
 	const dx = Math.max(Math.abs(x) - a, 0);
 	const dy = Math.max(Math.abs(y) - b, 0);
 	return Math.sqrt(dx * dx + dy * dy);
 }
 // min distance from segment (x1,y1)-(x2,y2) to axis-aligned box [-a,a]x[-b,b]
-function segmentToBoxDistance(x1:number, y1:number, x2:number, y2:number, a:number, b:number): number {
+function segmentToBoxDistance(x1: number, y1: number, x2: number, y2: number, a: number, b: number): number {
 	let m = Math.min(p2sPointToBox(x1, y1, a, b), p2sPointToBox(x2, y2, a, b));
 	m = Math.min(m, segmentToSegmentDistance(x1, y1, x2, y2, -a, -b, a, -b));
 	m = Math.min(m, segmentToSegmentDistance(x1, y1, x2, y2, -a, b, a, b));
@@ -1804,9 +1816,9 @@ function segmentToBoxDistance(x1:number, y1:number, x2:number, y2:number, a:numb
 	return m;
 }
 // clearance (mil) between a rotated rectangular pad (center padX,padY; half-extents halfW/halfH; absolute rotDeg) and a line segment, minus lineHalfWidth
-function padRectToSegClearanceMil(padX:number, padY:number, halfW:number, halfH:number, rotRad:number, seg:{ x1:number; y1:number; x2:number; y2:number }, lineHalfWidth:number): number {
+function padRectToSegClearanceMil(padX: number, padY: number, halfW: number, halfH: number, rotRad: number, seg: { x1: number; y1: number; x2: number; y2: number }, lineHalfWidth: number): number {
 	const th = rotRad; // radians, as returned by getState_Rotation()
-	const c = Math.cos(th), sn = Math.sin(th);
+	const c = Math.cos(th); const sn = Math.sin(th);
 	const lx1 = (seg.x1 - padX) * c + (seg.y1 - padY) * sn;
 	const ly1 = -(seg.x1 - padX) * sn + (seg.y1 - padY) * c;
 	const lx2 = (seg.x2 - padX) * c + (seg.y2 - padY) * sn;
@@ -1817,9 +1829,9 @@ function padRectToSegClearanceMil(padX:number, padY:number, halfW:number, halfH:
 // clearance (mil) between a stadium/oval pad (capsule = points within r of the long-axis segment) and a line segment, minus lineHalfWidth.
 // 非矩形长圆形焊盘(OVAL/ELLIPSE 等)用胶囊形精确求距:中心轴线段沿长轴(半长 halfLong-halfShort),半径 r=halfShort;
 // 线段到胶囊边 = 线段到中心轴线段距离 - r - lineHalfWidth。halfW==halfH 时退化为圆(等价旧 max/2,但不再对长焊盘窄边过度伸出)。
-function padOvalToSegClearanceMil(padX:number, padY:number, halfW:number, halfH:number, rotRad:number, seg:{ x1:number; y1:number; x2:number; y2:number }, lineHalfWidth:number): number {
+function padOvalToSegClearanceMil(padX: number, padY: number, halfW: number, halfH: number, rotRad: number, seg: { x1: number; y1: number; x2: number; y2: number }, lineHalfWidth: number): number {
 	const th = rotRad;
-	const c = Math.cos(th), sn = Math.sin(th);
+	const c = Math.cos(th); const sn = Math.sin(th);
 	const lx1 = (seg.x1 - padX) * c + (seg.y1 - padY) * sn;
 	const ly1 = -(seg.x1 - padX) * sn + (seg.y1 - padY) * c;
 	const lx2 = (seg.x2 - padX) * c + (seg.y2 - padY) * sn;
@@ -1828,7 +1840,7 @@ function padOvalToSegClearanceMil(padX:number, padY:number, halfW:number, halfH:
 	const halfShort = Math.min(halfW, halfH);
 	const r = halfShort;
 	const axisHalf = halfLong - r; // 中心轴线段半长(沿长轴方向)
-	let dAxis:number;
+	let dAxis: number;
 	if (halfW >= halfH)
 		dAxis = segmentToSegmentDistance(lx1, ly1, lx2, ly2, -axisHalf, 0, axisHalf, 0); // 长轴沿 X
 	else
@@ -1885,7 +1897,7 @@ async function checkPadToLineSpacing(): Promise<CheckResult> {
 		try {
 			const netNames = await eda.pcb_Net.getAllNetsName();
 			const results = await Promise.allSettled(
-				netNames.map((name) => eda.pcb_Net.getAllPrimitivesByNet(name).then((prims) => ({ name, prims }))),
+				netNames.map(name => eda.pcb_Net.getAllPrimitivesByNet(name).then(prims => ({ name, prims }))),
 			);
 			for (const r of results) {
 				if (r.status !== 'fulfilled' || !Array.isArray((r as any).value?.prims))
@@ -1942,7 +1954,8 @@ async function checkPadToLineSpacing(): Promise<CheckResult> {
 			let poly: any = null;
 			try {
 				poly = pr.getState_ComplexPolygon?.();
-			} catch {
+			}
+			catch {
 				/* 取不到多边形则跳过 */
 			}
 			const src = poly && typeof poly.getSource === 'function' ? poly.getSource() : (Array.isArray(poly) ? poly : null);
@@ -1967,7 +1980,8 @@ async function checkPadToLineSpacing(): Promise<CheckResult> {
 					if (Array.isArray(d) && d.length >= 3)
 						pts = d.map((pp: any) => ({ x: Number(pp.x) || 0, y: Number(pp.y) || 0 }));
 				}
-			} catch {
+			}
+			catch {
 				/* 离散化失败则只用外接框 */
 			}
 			if (pts || bbox)
@@ -1998,7 +2012,7 @@ async function checkPadToLineSpacing(): Promise<CheckResult> {
 			const pid = p.getState_PrimitiveId?.() ?? p.primitiveId ?? '';
 			// pad shape: rectangle exact clearance; non-rect falls back to circular max/2
 			const padShapeRaw: any = p.getState_Pad?.() ?? p.pad ?? null;
-			let padHalfW = padRadiusMil, padHalfH = padRadiusMil, padRotRad = 0, padIsRect = false;
+			let padHalfW = padRadiusMil; let padHalfH = padRadiusMil; let padRotRad = 0; let padIsRect = false;
 			if (Array.isArray(padShapeRaw) && padShapeRaw.length >= 3) {
 				const sw = Number(padShapeRaw[1]) || 0;
 				const sh = Number(padShapeRaw[2]) || 0;
@@ -2032,7 +2046,7 @@ async function checkPadToLineSpacing(): Promise<CheckResult> {
 			catch {
 				/* connected-primitives query unavailable; fall back to geometric touch / net map */
 			}
-			const sameLayerLines = padIsMulti ? lineCache : lineCache.filter((lc) => lc.layer === padLayer); // 多层焊盘比全部走线(同过孔),单层只比同层
+			const sameLayerLines = padIsMulti ? lineCache : lineCache.filter(lc => lc.layer === padLayer); // 多层焊盘比全部走线(同过孔),单层只比同层
 			// 仅当焊盘无权威网络时,才用几何相接(边距≤0)推断其网络;
 			// 否则不同网络的走线贴紧焊盘会被误并入同网络而漏检短路
 			if (padNets.size === 0) {
@@ -2361,15 +2375,15 @@ async function collectBgaPadIds(): Promise<{ ids: string[]; componentCount: numb
 /**
  * 多引脚元件的焊盘坐标集合(供 SMT 最小 IC 引脚间距 / BGA 球间距计算)
  */
-type ComponentPadCoords = {
+interface ComponentPadCoords {
 	isBga: boolean;
 	designator: string;
 	fpName: string;
 	compId: string;
 	x: number;
 	y: number;
-	coords: Array<{ x: number; y: number }>;
-};
+	coords: Array<{ x: number; y: number; layer: string }>;
+}
 
 /**
  * 收集多引脚元件(pad≥4)的焊盘坐标列表
@@ -2391,12 +2405,12 @@ async function collectComponentPadCoords(): Promise<ComponentPadCoords[]> {
 		if (shortIds.length === 0)
 			continue;
 
-		const coords: Array<{ x: number; y: number }> = [];
+		const coords: Array<{ x: number; y: number; layer: string }> = [];
 		for (const pad of allPads) {
 			const p: any = pad;
 			const pid = String(p.getState_PrimitiveId?.() ?? '');
-			if (shortIds.some((s) => pid.endsWith(s))) {
-				coords.push({ x: p.getState_X?.() ?? 0, y: p.getState_Y?.() ?? 0 });
+			if (shortIds.some(s => pid.endsWith(s))) {
+				coords.push({ x: p.getState_X?.() ?? 0, y: p.getState_Y?.() ?? 0, layer: String(p.getState_Layer?.() ?? p.layer ?? 0) });
 			}
 		}
 		if (coords.length === 0)
@@ -2430,6 +2444,34 @@ function minPairDistanceMil(coords: Array<{ x: number; y: number }>): number {
 			if (d > 0 && d < min) {
 				min = d;
 			}
+		}
+	}
+	return min;
+}
+
+/**
+ * 一组带层别坐标的两两最小距离,仅比较共面(同侧)焊盘对(顶1/底2 不共面;通孔12 与顶/底都共面)。
+ * 用于 IC 引脚间距:避免内孔/双面件顶层↔底层 2D 重叠算出假 pitch。
+ */
+function minPairDistanceMilByLayer(coords: Array<{ x: number; y: number; layer: string }>): number {
+	const outerLayersOf = (layer: string): Set<string> => (layer === '12' ? new Set(['1', '2']) : new Set([layer]));
+	const shareLayer = (a: string, b: string): boolean => {
+		const sa = outerLayersOf(a);
+		for (const l of outerLayersOf(b))
+			if (sa.has(l))
+				return true;
+		return false;
+	};
+	let min = Infinity;
+	for (let i = 0; i < coords.length; i++) {
+		for (let j = i + 1; j < coords.length; j++) {
+			if (!shareLayer(coords[i].layer, coords[j].layer))
+				continue; // 不共面(如顶↔底 SMT):板子正反两面,非相邻引脚,跳过
+			const dx = coords[i].x - coords[j].x;
+			const dy = coords[i].y - coords[j].y;
+			const d = Math.sqrt(dx * dx + dy * dy);
+			if (d > 0 && d < min)
+				min = d;
 		}
 	}
 	return min;
@@ -2472,7 +2514,7 @@ async function checkBgaPad(): Promise<CheckResult> {
 			const h = Number(shape[2]) || 0;
 			if (w <= 0 || h <= 0)
 				return 0;
-			const _mx = Math.max(w, h), _mn = Math.min(w, h);
+			const _mx = Math.max(w, h); const _mn = Math.min(w, h);
 			// BGA 焊盘按定义圆形;getState_Pad 对元件焊盘不稳定(实测 0.4mm 圆焊盘被返成 2mm 长圆),长轴为幽灵值;两轴悬殊(长/短>2)时取短轴为直径,避免到线误报;真圆形两轴接近则取 max 不变
 			return _mx / _mn > 2 ? _mn : _mx;
 		};
@@ -2796,15 +2838,20 @@ async function checkSolderingSides(standard: SmtStandardConfig): Promise<CheckRe
 		let hasBot = false;
 		for (const p of pads) {
 			const layer = (p as any).getState_Layer?.();
-			if (layer === 1) hasTop = true;
-			else if (layer === 2) hasBot = true;
+			if (layer === 1)
+				hasTop = true;
+			else if (layer === 2)
+				hasBot = true;
 		}
 
 		// 实际焊接面
 		const isDualSided = hasTop && hasBot;
-		if (isDualSided) result.actualValue = 'TOP + BOT（双面）';
-		else if (hasTop) result.actualValue = 'TOP（单面）';
-		else if (hasBot) result.actualValue = 'BOT（单面）';
+		if (isDualSided)
+			result.actualValue = 'TOP + BOT（双面）';
+		else if (hasTop)
+			result.actualValue = 'TOP（单面）';
+		else if (hasBot)
+			result.actualValue = 'BOT（单面）';
 		else result.actualValue = '无贴片焊盘';
 
 		// 标准是否支持双面：solderingSides 含 'both' 才支持双面，否则仅支持单面
@@ -2900,7 +2947,8 @@ async function checkSmtBoardSize(standard: SmtStandardConfig): Promise<CheckResu
 		const BOARD_OUTLINE_LAYER = 11;
 		const allIds: string[] = [];
 		const pushIds = (arr: any[]) => {
-			if (arr?.length) allIds.push(...arr.map((p: any) => p.primitiveId || p.id));
+			if (arr?.length)
+				allIds.push(...arr.map((p: any) => p.primitiveId || p.id));
 		};
 		pushIds(await eda.pcb_PrimitivePolyline.getAll(undefined, BOARD_OUTLINE_LAYER as any));
 		pushIds(await eda.pcb_PrimitiveLine.getAll(undefined, BOARD_OUTLINE_LAYER as any));
@@ -3030,7 +3078,7 @@ async function checkSmtIcPinPitch(standard: SmtStandardConfig, compPads: Compone
 				continue; // 不考虑 BGA
 			if (cp.coords.length < 2)
 				continue;
-			const pitchMil = minPairDistanceMil(cp.coords);
+			const pitchMil = minPairDistanceMilByLayer(cp.coords);
 			if (!isFinite(pitchMil))
 				continue;
 			const pitchMm = eda.sys_Unit.milToMm(pitchMil);
@@ -3244,12 +3292,48 @@ let currentDfmResults: { results: PcbDfmResult | SmtDfmResult; type: 'pcb' | 'sm
  * @param results 检查结果
  * @param type 检查类型 ('pcb' | 'smt')
  */
+/**
+ * 各检测项目的鼠标悬停描述(结果窗「检测项目」列 title)。
+ * 集中维护,在 showDfmResults 里按 item 名挂到每条结果上 —— 不侵入各检查函数。
+ */
+const ITEM_DESCRIPTIONS: Record<string, string> = {
+	'板材类型': '板子使用的基材类型(如 FR-4、铝基板、高频板)',
+	'层数': '板子铜层的层数(单层、双层、四层等)',
+	'纵横尺寸': '板子纵向的最大距离和横向的最大距离',
+	'板厚': '板子成品的总厚度',
+	'外层铜厚': '板子最外层铜皮的厚度',
+	'内层铜厚': '多层板内部铜层的厚度',
+	'过孔类型': '过孔的导通方式(通孔、盲孔、埋孔)',
+	'钻孔直径': '过孔和焊盘上钻孔的直径',
+	'过孔/焊盘外径': '过孔和焊盘外围铜圈的直径',
+	'有铜槽孔': '内壁有铜镀层的长条形槽孔',
+	'无铜槽孔': '内壁无铜镀层的长条形开槽',
+	'最小线宽': '板上走线的最细宽度',
+	'最小线距': '相邻走线之间的最短间距',
+	'焊盘/过孔到线间距': '焊盘、过孔与相邻走线之间的间距',
+	'有铜插件焊盘焊环': '直插元件焊盘外围的铜环宽度(该层有铜连接)',
+	'无铜插件焊盘焊环': '直插元件焊盘外围的铜环宽度(该层无铜/隔离)',
+	'BGA焊盘': 'BGA 芯片底部锡球焊盘的直径',
+	'丝印字符': '板上的丝印文字与符号(白油字符)',
+	'焊接面': '贴片元件焊接的面(顶层、底层或双面)',
+	'最小封装': '板上元件的最小封装尺寸(如 0402、0201)',
+	'最小IC引脚间距': 'IC 芯片相邻引脚之间的距离',
+	'BGA球径间距': 'BGA 芯片相邻锡球之间的距离',
+	'同网络焊盘间距': '同一网络(电气连通)的焊盘相互之间的边到边距离',
+};
+
 function showDfmResults(results: PcbDfmResult | SmtDfmResult, type: 'pcb' | 'smt' | 'spacing'): void {
 	try {
+		// 挂载检测项目描述(结果窗「检测项目」列 title 用);不改各检查函数,集中按 item 名补
+		for (const r of results.results) {
+			if (!r.description)
+				r.description = ITEM_DESCRIPTIONS[r.item] ?? '';
+		}
 		// 保存当前结果到全局变量
 		currentDfmResults = { results, type };
 		// 刷新场景:仅更新 currentDfmResults,不重开结果窗(由 IFrame 原地重渲染)
-		if (suppressShowResults) return;
+		if (suppressShowResults)
+			return;
 
 		// 打开结果展示 iframe
 		eda.sys_IFrame.openIFrame(
@@ -3461,7 +3545,8 @@ if (typeof eda !== 'undefined') {
 					buttonCallbackFn: async (btn: 'close' | 'minimize' | 'maximize') => {
 						try {
 							// 明细窗 X 关闭时恢复表格主窗
-							if (btn === 'close') await eda.sys_IFrame.showIFrame('dfmResults');
+							if (btn === 'close')
+								await eda.sys_IFrame.showIFrame('dfmResults');
 						}
 						catch { /* 明细窗已关闭,忽略恢复失败 */ }
 					},
