@@ -1902,7 +1902,7 @@ async function checkPadToLineSpacing(): Promise<CheckResult> {
 			for (const r of results) {
 				if (r.status !== 'fulfilled' || !Array.isArray((r as any).value?.prims))
 					continue;
-				for (const prim of (r as any).value.pris) {
+				for (const prim of (r as any).value.prims) {
 					const id = (prim as any).getState_PrimitiveId?.() ?? (prim as any).primitiveId ?? '';
 					if (id)
 						netById.set(id, (r as any).value.name);
@@ -2019,9 +2019,9 @@ async function checkPadToLineSpacing(): Promise<CheckResult> {
 				if (sw > 0 && sh > 0) {
 					padHalfW = sw / 2; padHalfH = sh / 2;
 					padIsRect = padShapeRaw.length >= 4 || String(padShapeRaw[0]).toUpperCase() === 'RECT';
-					// getState_Rotation() returns RADIANS (e.g. -pi/2 = -90deg). Use it directly as the rotation.
+					// getState_Rotation(): V3.2.148 returns RADIANS (e.g. -pi/2); V3.2.166 returns DEGREES (e.g. 90). Normalize: |rot|>pi => degrees->radians, else treat as radians (148 compat). 166 deg=90 read as 90rad flipped the rect long axis => mass pad-to-line false positives.
 					const rotRadFromApi = Number(p.getState_Rotation?.() ?? 0) || 0;
-					padRotRad = rotRadFromApi;
+					padRotRad = Math.abs(rotRadFromApi) > Math.PI ? rotRadFromApi * Math.PI / 180 : rotRadFromApi;
 				}
 			}
 			const clrPadLine = (seg: { x1: number; y1: number; x2: number; y2: number }, lineHalfW: number): number =>
@@ -2047,13 +2047,12 @@ async function checkPadToLineSpacing(): Promise<CheckResult> {
 				/* connected-primitives query unavailable; fall back to geometric touch / net map */
 			}
 			const sameLayerLines = padIsMulti ? lineCache : lineCache.filter(lc => lc.layer === padLayer); // 多层焊盘比全部走线(同过孔),单层只比同层
-			// 仅当焊盘无权威网络时,才用几何相接(边距≤0)推断其网络;
-			// 否则不同网络的走线贴紧焊盘会被误并入同网络而漏检短路
-			if (padNets.size === 0) {
-				for (const lc of sameLayerLines) {
-					if (clrPadLine(lc.seg, lc.widthMil / 2) <= 0 && lc.net)
-						padNets.add(lc.net);
-				}
+			// 几何相接(边距<=0)无条件推断同网络:V3.2.166 的 getAllPrimitivesByNet/getConnectedPrimitives 退化、
+			// getState_Net 对自动网络($1N)返回不一致名,网络名已不可靠,故以"物理贴/穿焊盘"作为同网络的可靠判据。
+			// 代价:异网络走线真短路(相接)也会并入同网络跳过;但本项是间距检查(查边距>0 过近),不查短路。
+			for (const lc of sameLayerLines) {
+				if (clrPadLine(lc.seg, lc.widthMil / 2) <= 0 && lc.net)
+					padNets.add(lc.net);
 			}
 			for (const vc of viaCache) {
 				if (vc.radiusMil <= 0)
@@ -2097,12 +2096,10 @@ async function checkPadToLineSpacing(): Promise<CheckResult> {
 			const viaNets = new Set<string>();
 			if (vc.net)
 				viaNets.add(vc.net);
-			// 仅当过孔无权威网络时才用几何相接推断(避免不同网络贴紧被误判同网络而漏检)
-			if (viaNets.size === 0) {
-				for (const lc of lineCache) {
-					if (distToSeg(vc.x, vc.y, lc.seg) <= vc.radiusMil + lc.widthMil / 2 && lc.net)
-						viaNets.add(lc.net);
-				}
+			// 几何相接无条件推断同网络(理由同焊盘分支:V3.2.166 网络名不可靠,以物理相接为准)
+			for (const lc of lineCache) {
+				if (distToSeg(vc.x, vc.y, lc.seg) <= vc.radiusMil + lc.widthMil / 2 && lc.net)
+					viaNets.add(lc.net);
 			}
 			for (const rg of pourRegions) {
 				if (inRegion(vc.x, vc.y, rg))
