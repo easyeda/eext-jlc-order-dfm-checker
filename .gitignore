@@ -15,3 +15,6 @@ debug.log
 # generated docs (exported from .md, avoid duplicates) — only binaries under doc/
 /doc/**/*.docx
 /doc/**/*.html
+
+# 临时脚本与产物
+/tmp/
