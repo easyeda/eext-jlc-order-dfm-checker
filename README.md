@@ -1,137 +1,157 @@
-# 嘉立创 DFM 检查工具
+[English](./README.md) | [简体中文](./README.zh-CN.md)
 
-> 一款嘉立创 EDA 专业版扩展，一键检测 PCB 设计是否符合嘉立创制造工艺要求；违规项可点击定位、可导出报告。
+# JLC DFM Checker
 
+> An extension for EasyEDA Pro that checks, in one click, whether a PCB design meets JLC's fabrication process requirements. Violations can be located by clicking and exported as a report.
 
-## 效果速览
+## Table of Contents
 
-**头部菜单** —— PCB 编辑器顶部「嘉立创下单检查」展开后共三项入口：
-![头部菜单](./images/menu.png)
+- [At a Glance](#at-a-glance)
+- [Overview](#overview)
+- [Features](#features)
+  - [PCB DFM (18 Checks)](#pcb-dfm-18-checks)
+  - [SMT DFM (7 Checks)](#smt-dfm-7-checks)
+  - [Same-Net Pad Spacing](#same-net-pad-spacing)
+- [Supported Materials](#supported-materials)
+- [Usage](#usage)
+  - [1. PCB DFM](#1-pcb-dfm)
+  - [2. SMT DFM](#2-smt-dfm)
+  - [3. Same-Net Pad Spacing](#3-same-net-pad-spacing)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Notes](#notes)
+- [Feedback & References](#feedback--references)
+- [License](#license)
 
-**PCB DFM 结果主窗** —— 18 项检查结果表格，顶部支持「全部 / 已通过 / 未通过」过滤、刷新、导出，以及「错误明细」切换：
-![PCB DFM 结果主窗](./images/pcb-results.png)
+## At a Glance
 
-**错误明细窄窗** —— 点击「错误明细」后切换到的窄窗，只显示违规明细、减少对画布的遮挡，违规项可点击定位；右上角支持折叠，点「◀ 返回结果」或关闭即回到主窗：
-![错误明细窄窗](./images/pcb-details.png)
+**Header menu** — the **JLC Order Check** group at the top of the PCB editor expands into three entries:
+![Header menu](./images/menu.png)
 
-## 简介
+**PCB DFM results window** — an 18-check results table. The toolbar supports **All / Passed / Failed** filtering, refresh, export, and switching to **Error Details**:
+![PCB DFM results window](./images/pcb-results.png)
 
-「嘉立创 DFM 检查工具」面向使用嘉立创 EDA 专业版进行 PCB 设计的工程师。它在设计阶段即对照**嘉立创官方工艺标准**逐项检查当前 PCB，提前发现可能导致制造困难或返工的问题（线宽 / 线距、孔径、焊环、槽孔、BGA、丝印字符等），并对每一条违规给出**坐标 + 原因**，可在画布上点击定位、高亮对应元素，便于快速修正。
+**Error details window** — the narrow window opened by **Error Details**. It shows only violations to reduce obstruction of the canvas; each violation can be clicked to locate it. It can be collapsed at the top-right; click **◀ Back to Results** or close it to return to the main window:
+![Error details window](./images/pcb-details.png)
 
-- **覆盖范围**：PCB DFM 共 **18** 项 + SMT DFM 共 **7** 项 + 同网络焊盘间距检查。
-- **标准权威**：阈值取自嘉立创官方工艺参数，按板材、层数、铜厚自动匹配，**无需手工填写工艺参数**。
-- **遮挡更少**：结果主窗只显示总览表格，违规明细通过「错误明细」按钮切换到独立窄窗查看，不挤压画布。
-- **定位精准**：违规项记录图元 ID 与坐标，点击明细即可选中并缩放到对应元素。
-- **结果可导出**：可一键导出 `.txt` 报告。
+## Overview
 
-## 功能特性
+**JLC DFM Checker** is built for engineers who design PCBs with EasyEDA Pro. During the design phase it checks the current PCB item by item against **JLC's official fabrication standards**, catching issues early that could cause manufacturing difficulties or rework (trace width / spacing, hole size, annular ring, slot holes, BGA, silkscreen text, etc.). Every violation is reported with its **coordinates + reason**, and can be clicked in the canvas to locate and highlight the corresponding element for quick correction.
 
-### PCB DFM（18 项）
+- **Coverage**: **18** PCB DFM checks + **7** SMT DFM checks + same-net pad spacing check.
+- **Authoritative standards**: thresholds come from JLC's official process parameters and are matched automatically by material, layer count, and copper weight — **no manual process parameters required**.
+- **Less obstruction**: the main results window shows only the summary table; violations are viewed in a separate narrow details window instead of squeezing the canvas.
+- **Precise locating**: violations record the primitive ID and coordinates; clicking a detail selects and zooms to the corresponding element.
+- **Exportable results**: export a `.txt` report in one click.
 
-| 类别 | 检查项 |
-|------|--------|
-| 基础信息 | 板材类型、层数、纵横尺寸、板厚、外层铜厚、内层铜厚、过孔类型（通孔 / 盲孔 / 埋孔单独识别） |
-| 过孔与槽孔 | 钻孔直径（过孔 + 焊盘）、过孔 / 焊盘外径、有铜槽孔、无铜槽孔 |
-| 线路与间距 | 最小线宽、最小线距、焊盘 / 过孔到线间距、有铜插件焊盘焊环、无铜插件焊盘焊环 |
-| 特殊元件与丝印 | BGA 焊盘、丝印字符 |
+## Features
 
-> - 盲孔与埋孔可单独区分（绕开编辑器枚举把二者合并的限制）。
-> - 焊盘到线按矩形焊盘的真实旋转精确求距，并自动跳过同网络（含覆铜十字连接）的元素，避免误报。
+### PCB DFM (18 Checks)
 
-### SMT DFM（7 项）
+| Category | Checks |
+|----------|--------|
+| Basic information | Material type, layer count, width/height, board thickness, outer copper weight, inner copper weight, via type (through-hole / blind / buried identified separately) |
+| Vias and slots | Drill diameter (vias + pads), via / pad outer diameter, plated slot holes, non-plated slot holes |
+| Traces and spacing | Minimum trace width, minimum trace spacing, pad / via-to-trace spacing, plated through-hole pad annular ring, non-plated through-hole pad annular ring |
+| Special components and silkscreen | BGA pads, silkscreen text |
 
-执行前选择「经济型」或「标准型」标准，依次检查：焊接面、层数、板厚、纵横尺寸、最小封装（经济型最小 0402 / 标准型最小 0201）、最小 IC 引脚间距、BGA 球径间距。
+> - Blind and buried vias are distinguished separately (working around the editor enum that merges the two).
+> - Pad-to-trace distance is calculated precisely using the true rotation of rectangular pads, and same-net elements (including copper pour thermal connections) are skipped automatically to avoid false positives.
 
-### 同网络焊盘间距
+### SMT DFM (7 Checks)
 
-独立菜单，手动设定最小间距值（mm），检查同网络焊盘两两之间的间距是否满足要求。
+Choose the **Economic** or **Standard** grade before running. The following are checked in order: solder side, layer count, board thickness, width/height, minimum package (Economic: 0402 min / Standard: 0201 min), minimum IC pin pitch, BGA ball diameter/spacing.
 
-## 支持板材
+### Same-Net Pad Spacing
 
-标准取自嘉立创官方工艺参数；其中部分参数会随层数 / 铜厚自动分段匹配：
+A standalone menu entry: manually set the minimum spacing (mm) and check whether the pairwise spacing between pads on the same net meets the requirement.
 
-| 板材 | 层数 | 可选板厚 |
-|------|------|----------|
-| FR4 | 1–64 | 0.4–4.8 mm（支持盲埋孔，可区分盲 / 埋） |
-| HDI 板 | 4–32 | 0.5–2.4 mm（盲孔 0.075–0.15 / 埋孔 0.15–0.55） |
-| 高频板 | 2 | 0.51 / 0.76 / 1.52 mm |
-| 铝基板 | 1 | 0.8 / 1.0 / 1.2 / 1.6 mm |
-| 铜基板 | 2 | 1.0 / 1.2 / 1.6 mm |
+## Supported Materials
 
-> 例如 FR4 的最大尺寸按层数分 4 档、最小线宽 / 线距按外层铜厚分 7 档（1oz 0.10 mm → 6oz 0.45 mm），工具会根据实际板子自动选取对应阈值。
+Standards come from JLC's official process parameters; some parameters are matched in tiers by layer count / copper weight automatically:
 
-## 使用方法
+| Material | Layers | Available thickness |
+|----------|--------|---------------------|
+| FR4 | 1–64 | 0.4–4.8 mm (blind/buried vias supported, blind and buried distinguished) |
+| HDI board | 4–32 | 0.5–2.4 mm (blind vias 0.075–0.15 / buried vias 0.15–0.55) |
+| High-frequency board | 2 | 0.51 / 0.76 / 1.52 mm |
+| Aluminum board | 1 | 0.8 / 1.0 / 1.2 / 1.6 mm |
+| Copper-based board | 2 | 1.0 / 1.2 / 1.6 mm |
 
-工具挂在 **PCB 编辑器**的头部菜单「嘉立创下单检查」下，共三项菜单。
+> For example, FR4's maximum dimensions are split into 4 tiers by layer count, and minimum trace width / spacing into 7 tiers by outer copper weight (1 oz 0.10 mm → 6 oz 0.45 mm). The tool automatically selects the thresholds that apply to your board.
 
-> 菜单截图：![头部菜单](./images/menu.png)
+## Usage
+
+The tool is available under the **JLC Order Check** group in the **PCB editor** header menu, with three entries.
+
+> Menu screenshot: ![Header menu](./images/menu.png)
 
 ### 1. PCB DFM
 
-1. 在 PCB 编辑器中打开待检板子，点击菜单 **嘉立创下单检查 → 嘉立创 PCB DFM…**。
-2. 在弹出的「板材类型 / 板厚」对话框中选择板材、填写板厚并确定。
+1. Open the board to be checked in the PCB editor and click **JLC Order Check → JLC PCB DFM…**.
+2. In the **Material Type / Board Thickness** dialog, select the material, enter the board thickness, and confirm.
 
-   > ![板材 / 板厚选择](./images/pcb-material.png)
+   > ![Material / thickness selection](./images/pcb-material.png)
 
-3. 工具自动采集图元、解析设计文件（铜厚、盲埋孔规则）并执行 18 项检查。
-4. 检查完成后，底部日志面板输出摘要，同时弹出**结果主窗**：以表格列出每项的「编号 / 检测项目 / 标准值 / 实际值 / 结果」（结果分未通过 / 警告 / OK）。
+3. The tool automatically collects primitives, parses the design file (copper weight, blind/buried via rules), and runs the 18 checks.
+4. When finished, a summary is printed in the bottom log panel, and the **results window** opens, listing **No. / Check Item / Standard / Actual / Result** for each check (Result: Failed / Warning / OK).
 
-   > ![PCB DFM 结果主窗](./images/pcb-results.png)
+   > ![PCB DFM results window](./images/pcb-results.png)
 
-5. 结果主窗顶部工具栏：
-   - 「全部 / 已通过 / 未通过」分段过滤；
-   - 「刷新」按最新数据原地重跑（不重开窗口）；
-   - 「导出」一键导出 `.txt` 报告；
-   - 「错误明细」切换到独立窄明细窗。
-6. 点击「错误明细」→ 隐藏主窗、弹出**窄明细窗**（只显示违规明细，按检测项目分组），减少对画布的遮挡；明细窗右上角可折叠，点「◀ 返回结果」或关闭即回到主窗。
+5. Toolbar at the top of the results window:
+   - **All / Passed / Failed** segmented filter;
+   - **Refresh** re-runs in place on the latest data (without reopening the window);
+   - **Export** generates a `.txt` report in one click;
+   - **Error Details** switches to the separate narrow details window.
+6. Click **Error Details** → the main window is hidden and the **narrow details window** opens (violations only, grouped by check), reducing obstruction of the canvas. It can be collapsed at the top-right; click **◀ Back to Results** or close it to return to the main window.
 
-   > ![错误明细窄窗](./images/pcb-details.png)
+   > ![Error details window](./images/pcb-details.png)
 
-7. 点击明细中的违规项 → 画布选中并缩放到对应元素，便于快速修正。
+7. Click a violation in the details list → the corresponding element is selected and zoomed to on the canvas for quick correction.
 
 ### 2. SMT DFM
 
-1. 点击菜单 **嘉立创下单检查 → 嘉立创 SMT DFM…**。
-2. 在弹出的对话框中选择「经济型」或「标准型」并确定。
+1. Click **JLC Order Check → JLC SMT DFM…**.
+2. In the dialog, select **Economic** or **Standard** and confirm.
 
-   > ![SMT 标准选择](./images/smt-standard.png)
+   > ![SMT grade selection](./images/smt-standard.png)
 
-3. 执行 7 项检查，结果同样在结果主窗中展示，交互与 PCB DFM 一致（过滤 / 错误明细 / 导出 / 点击定位）。
+3. The 7 checks run and the results are shown in the same results window, with the same interactions as PCB DFM (filter / error details / export / click to locate).
 
-### 3. 同网络焊盘间距
+### 3. Same-Net Pad Spacing
 
-1. 点击菜单 **嘉立创下单检查 → 同网络焊盘间距…**。
-2. 在弹出的对话框中输入最小间距（mm）并确定。
+1. Click **JLC Order Check → Same-Net Pad Spacing…**.
+2. In the dialog, enter the minimum spacing (mm) and confirm.
 
-   > ![间距输入](./images/spacing-input.png)
+   > ![Spacing input](./images/spacing-input.png)
 
-3. 执行检查并在结果窗展示违规明细。
+3. The check runs and violations are shown in the results window.
 
-## 环境要求
+## Requirements
 
-- 嘉立创 EDA 专业版 **V3** 及以上（`engines.eda: ^3.0.0`）。
-- 需在 **PCB 编辑器**内使用（原理图编辑器不适用）。
+- EasyEDA Pro **V3** or later (`engines.eda: ^3.0.0`).
+- Must be used inside the **PCB editor** (the schematic editor is not supported).
 
-## 安装
+## Installation
 
-1. 获取扩展包 `.eext`（开发时运行 `npm run build` 生成，文件名以 `jlc-order-dfm-checker` 开头）。
-2. 在嘉立创 EDA 专业版中：**顶部菜单 → 高级 → 扩展管理器 → 导入**，选择该 `.eext` 文件完成安装。
-3. 进入 PCB 编辑器，即可在头部菜单看到「嘉立创下单检查」。
+1. Obtain the extension package `.eext` (generated by `npm run build` during development; the file name starts with `jlc-order-dfm-checker`).
+2. In EasyEDA Pro: **top menu → Advanced → Extension Manager → Import**, then select the `.eext` file to install.
+3. Open the PCB editor and the **JLC Order Check** menu appears in the header.
 
-## 说明
+## Notes
 
-- **标准固定**：本工具仅按嘉立创官方工艺检测，不提供自定义工艺参数。
-- **板材 / 板厚**：因编辑器 API 不提供板材与板厚接口，这两项需在弹窗中由用户选择 / 填写；外层 / 内层铜厚与过孔类型则自动从设计文件解析，无需手工输入。
-- **结果窗交互**：主窗只看总览表格，违规明细走「错误明细」窄窗（可折叠、可返回），刻意把明细与总览分窗以减少对画布的遮挡。
-- **更新扩展**：开发或更新扩展后，需在扩展管理器中**重新导入** `.eext`（或重启 EDA）才能让新代码生效；扩展自身无法在运行时热刷新。
-- **不会改动设计**：工具只读取并分析设计数据，不会修改你的 PCB / 原理图。
+- **Fixed standards**: this tool only checks against JLC's official process parameters and does not support custom process parameters.
+- **Material / thickness**: the editor API does not expose material and board thickness, so these two are selected / entered by the user in the dialog; outer / inner copper weight and via types are parsed automatically from the design file and need no manual input.
+- **Results window interaction**: the main window shows only the summary table, while violations live in the **Error Details** narrow window (collapsible, can return). Details and summary are deliberately split into separate windows to reduce canvas obstruction.
+- **Updating the extension**: after developing or updating the extension, **re-import** the `.eext` in the Extension Manager (or restart EasyEDA) for the new code to take effect; the extension cannot hot-reload at runtime.
+- **Read-only**: the tool only reads and analyzes design data and never modifies your PCB / schematic.
 
-## 反馈与参考
+## Feedback & References
 
-- 嘉立创工艺参数：<https://www.jlc.com/portal/vtechnology.html>
-- 嘉立创 EDA 专业版：<https://pro.lceda.cn/>
-- 嘉立创 EDA 扩展开发文档：<https://prodocs.lceda.cn/cn/api/guide/>
+- JLC process parameters: <https://www.jlc.com/portal/vtechnology.html>
+- EasyEDA Pro: <https://pro.easyeda.com/>
+- EasyEDA Pro extension development docs: <https://prodocs.easyeda.com/en/api/guide/>
 
-## 开源许可
+## License
 
 [Apache License 2.0](./LICENSE)
