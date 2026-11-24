@@ -20,10 +20,8 @@
 debug.log
 /ProDoc_PCB*.epro2
 /lceda-pro-file-format-v3_*/
-/README.en.md
-/README.ja.md
-/README.ru.md
-/README.zh-Hant.md
+# 多语言 README 需保留在包内:zh 构建会把英文 README 改名为 README.en.md,
+# 包内 README.md 的语言切换链接指向该文件,排除它会导致链接失效
 
 # DFM checker: 运行时不加载的资源,排除以缩小 .eext
 # 遗留/模板页面,代码无引用
