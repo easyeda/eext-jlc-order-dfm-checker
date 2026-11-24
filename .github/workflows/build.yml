@@ -306,6 +306,9 @@ jobs:
               cp "$BASE_FILE" "$ZH_FILE"
             else
               echo "README.md is English, swap zh: $ZH_README"
+              # 备份英文基线包：本步骤会用中文 README 重新构建并移走基线包，
+              # 后续 global 包步骤仍需复用英文基线包
+              cp "$BASE_FILE" "${BASE_FILE}.en.bak"
               mv README.md README.en.md
               cp "$ZH_README" README.md
               find . -name "*.md" -not -path "./build/*" -not -path "./node_modules/*" -not -path "./.git/*" -exec sed -i 's/README\.md/README.en.md/g' {} +
@@ -344,6 +347,8 @@ jobs:
               fi
 
               mv "$BASE_FILE" "$ZH_FILE"
+              # 恢复英文基线包，供后续 global 包步骤复制
+              mv "${BASE_FILE}.en.bak" "$BASE_FILE"
               git checkout -- "*.md" 2>/dev/null || true
               git checkout -- extension.json 2>/dev/null || true
               rm -f README.en.md 2>/dev/null || true
